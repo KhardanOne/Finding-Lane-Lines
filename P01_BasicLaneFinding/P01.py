@@ -321,12 +321,12 @@ def process_still_images():
         source = mpimg.imread(path_name)
         processed = process_image(source)
         mpimg.imsave("test_images_output/" + image_name, processed)
-        plt.imshow(processed)
-        plt.show()
+        #plt.imshow(processed)
+        #plt.show()
 
 
 # uncomment to generate the processed still images
-# process_still_images()
+process_still_images()
 
 
 # Remember the centers and slopes of the 8 most recent images to calculate rolling averages
