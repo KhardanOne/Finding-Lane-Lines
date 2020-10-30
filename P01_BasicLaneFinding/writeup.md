@@ -8,9 +8,12 @@ The goals / steps of this project are the following:
 
 ---
 ### Pipeline
-See [P01.py](P01.py).
-<BR>
-Requirements: python3, open-cv, numpy, matplotlib, moviepy.
+See [P01.py](P01.py).<BR>
+Dependencies: python3, open-cv, numpy, matplotlib, moviepy.<BR>
+To generate images and videoos into [test_images_output](test_images_output) and [test_videos_output](test_videos_output) folders type in the command line:<BR><BR>
+    ```
+    python3 P01.py
+    ```
 
 
 
