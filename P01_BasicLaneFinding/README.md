@@ -16,6 +16,6 @@ To run the script type in the command line:<BR>
     python3 P01.py
     ```
 <BR><BR>
-For detailed description see the [writup.md](writeup.md).
+For detailed description see the [writeup.md](writeup.md).
 
 
