@@ -58,6 +58,8 @@ def find_lane_pixels(binary_warped):
                       (win_xright_high, win_y_high), (0, 255, 0), 2)
 
         good_left_inds = ( (nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high) ).nonzero()[0]
+        x = left_lane_inds = (  (nonzerox > (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] - margin))
+                              & (nonzerox < (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] + margin)) )
         good_right_inds = ( (nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high) ).nonzero()[0]
 
         # Append these indices to the lists
