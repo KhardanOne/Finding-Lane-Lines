@@ -1,4 +1,5 @@
 from preprocess_helpers import *
+from globals import *
 
 
 class ImageProcessor:
@@ -26,10 +27,12 @@ class ImageProcessor:
     @classmethod
     def do(cls, img):
         undistorted = cls.camera.undistort(img)
-        binary = combined_threshold_3(undistorted, show_dbg=cls.show_dbg)
-        masked = apply_mask(binary, cls.mask)
+        #binary = combined_threshold_3(undistorted, show_dbg=cls.show_dbg)
+        binary = combined_threshold_3(undistorted, False)
+        #masked = apply_mask(binary, cls.mask)
+        birdseye = remove_perspective(binary)
         if cls.show_dbg:
-            cls.show(masked)
+            cls.show(birdseye)
 
     @classmethod
     def show(cls, img):

@@ -1,9 +1,8 @@
-# TODO: finish or delete
-
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from globals import *
 
 # image = mpimg.imread('../input/exercise_images/signs_vehicles_xygrad.png')
 image = mpimg.imread('../input/exercise_images/bridge_shadow.jpg')
@@ -218,6 +217,15 @@ def combined_threshold_3(color_img, show_dbg=False):
         plt.show()
 
     return combined_binary
+
+
+def get_perspective_transform(img, show_dbg=False):
+    pass
+
+
+def remove_perspective(img, show_dbg=False):
+    print(CFG['camera_calib_file'])
+    return np.copy(img)
 
 
 def region_of_interest(img, vertices):
