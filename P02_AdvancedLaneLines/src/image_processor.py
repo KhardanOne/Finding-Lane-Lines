@@ -21,7 +21,6 @@ class ImageProcessor:
         cls.mask = cls.default_mask
         cls.show_dbg = show_dbg
 
-
     @classmethod
     def reset(cls):
         cls.mask = cls.default_mask
@@ -33,8 +32,9 @@ class ImageProcessor:
         #masked = apply_mask(binary, cls.mask)
         birdseye = warp(binary, cls.camera.perspective_matrix, show_dbg and False)
         leftx, lefty, rightx, righty, windows_img = find_lane_pixels(birdseye, show_dbg and False)
-        left_fit, right_fit = fit_polynomial(leftx, lefty, rightx, righty, windows_img, show_dbg and True)
-        pass
+        left_fit, right_fit, poly_img = fit_polynomial(leftx, lefty, rightx, righty, windows_img, show_dbg and False)
+
+        return poly_img
 
     @classmethod
     def show(cls, img, title=None):
