@@ -339,6 +339,38 @@ def find_lane_pixels(binary_warped_img, show_dbg=False):
     return leftx, lefty, rightx, righty, out_img
 
 
+def fit_polynomial(leftx, lefty, rightx, righty, dbg_img, show_dbg=False):
+    # Fit a second order polynomial
+    left_fit = np.polyfit(lefty, leftx, 2)
+    right_fit = np.polyfit(righty, rightx, 2)
+
+    if show_dbg:
+        # Generate x and y values for plotting
+        ploty = np.linspace(0, dbg_img.shape[0] - 1, dbg_img.shape[0])
+        try:
+            left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+            right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
+        except TypeError:
+            # Avoids an error if `left` and `right_fit` are still none or incorrect
+            print('The function failed to fit a line!')
+            left_fitx = 1 * ploty ** 2 + 1 * ploty
+            right_fitx = 1 * ploty ** 2 + 1 * ploty
+
+        ## Visualization ##
+        # Colors in the left and right lane regions
+        dbg_img[lefty, leftx] = [255, 0, 0]
+        dbg_img[righty, rightx] = [0, 0, 255]
+
+        # Plots the left and right polynomials on the lane lines
+        plt.imshow(dbg_img)
+        plt.plot(left_fitx, ploty, color='yellow')
+        plt.plot(right_fitx, ploty, color='yellow')
+        plt.xlim(0, 1280)
+        plt.ylim(720, 0)
+        plt.show()
+
+    return left_fit, right_fit
+
 #
 # def region_of_interest(img, vertices):
 #     """Applies a mask defined by vertices to an image.
