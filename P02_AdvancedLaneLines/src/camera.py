@@ -1,3 +1,4 @@
+from preprocess_helpers import *
 import numpy as np
 import cv2
 import glob
@@ -7,9 +8,10 @@ import os
 
 class Camera:
 
-    def __init__(self, images_path, pattern_size, show_dbg=False, save_path=None):
+    def __init__(self, images_path, pattern_size, persp_path, persp_ref_points, save_path=None, show_dbg=False):
         self.matrix = None
         self.distortion_coeffs = None
+        self.perspective_matrix = None
 
         # Try to load the matrix and distortion_coeffs from file.
         if save_path:
@@ -18,7 +20,8 @@ class Camera:
                 return
 
         # If failed to load: generate and save
-        self.calibrate(images_path, pattern_size, show_dbg)
+        self.calibrate(images_path, pattern_size, show_dbg and False)
+        self.perspective_matrix = get_perspective_transform(persp_path, persp_ref_points, show_dbg and True)
         self.save(save_path)
 
     def save(self, path):
@@ -27,6 +30,7 @@ class Camera:
         file = cv2.FileStorage(path, cv2.FILE_STORAGE_WRITE)
         file.write("mtx", self.matrix)
         file.write("dist", self.distortion_coeffs)
+        file.write("persp", self.perspective_matrix)
         file.release()
         print('done.')
 
@@ -37,6 +41,7 @@ class Camera:
             file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
             self.matrix = file.getNode("mtx").mat()
             self.distortion_coeffs = file.getNode("dist").mat()
+            self.perspective_matrix = file.getNode("persp").mat()
             file.release()
             print('done.')
             return True

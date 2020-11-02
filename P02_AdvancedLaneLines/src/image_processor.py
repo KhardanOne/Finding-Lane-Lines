@@ -11,31 +11,33 @@ class ImageProcessor:
     height = None
     show_dbg = False
     mask_vertices = None
+    persp_mtx = None
 
     @classmethod
     def init(cls, size, camera, show_dbg=False):
         cls.width, cls.height = size
         cls.camera = camera
-        cls.default_mask = generate_mask(cls.width, cls.height, 0.05, int(cls.height * 0.6))
+        #cls.default_mask = generate_mask(cls.width, cls.height, 0.05, int(cls.height * 0.6))
         cls.mask = cls.default_mask
         cls.show_dbg = show_dbg
+
 
     @classmethod
     def reset(cls):
         cls.mask = cls.default_mask
 
     @classmethod
-    def do(cls, img):
+    def do(cls, img, show_dbg=False):
         undistorted = cls.camera.undistort(img)
         #binary = combined_threshold_3(undistorted, show_dbg=cls.show_dbg)
-        binary = combined_threshold_3(undistorted, False)
+        binary = combined_threshold_3(undistorted, show_dbg and False)
         #masked = apply_mask(binary, cls.mask)
-        birdseye = remove_perspective(binary)
-        if cls.show_dbg:
-            cls.show(birdseye)
+        birdseye = warp(binary, cls.camera.perspective_matrix, show_dbg and True)
 
     @classmethod
-    def show(cls, img):
+    def show(cls, img, title=None):
         colormap = None if len(img.shape) > 2 and img.shape[2] > 1 else 'gray'
+        if title:
+            plt.title(title)
         plt.imshow(img, cmap=colormap)
         plt.show()

@@ -219,13 +219,39 @@ def combined_threshold_3(color_img, show_dbg=False):
     return combined_binary
 
 
-def get_perspective_transform(img, show_dbg=False):
-    pass
+def get_perspective_transform(persp_path, persp_ref_points, show_dbg=False):
+    print("Calculating perspective matrix...", end=" ")
+    image = mpimg.imread(persp_path)
+    height1 = image.shape[0] - 1
+    left, right = persp_ref_points[0][0], persp_ref_points[3][0]
+    dst = np.float32([[left, height1], [left, 0], [right, 0], [right, height1]]).reshape(4, 2)
+    M = cv2.getPerspectiveTransform(persp_ref_points, dst)
+
+    if show_dbg:
+        plt.imshow(image)
+        plt.title('Perspective transform source points')
+        plt.plot(persp_ref_points[0][0], persp_ref_points[0][1], '.')
+        plt.plot(persp_ref_points[1][0], persp_ref_points[1][1], '.')
+        plt.plot(persp_ref_points[2][0], persp_ref_points[2][1], '.')
+        plt.plot(persp_ref_points[3][0], persp_ref_points[3][1], '.')
+        plt.show()
+
+    print("done.")
+    return M
 
 
-def remove_perspective(img, show_dbg=False):
-    print(CFG['camera_calib_file'])
-    return np.copy(img)
+def warp(img, M, show_dbg=False):
+    size = (img.shape[1], img.shape[0])
+    warped = cv2.warpPerspective(img, M, size, flags=cv2.INTER_LINEAR)
+    if show_dbg:
+        f, (ax1, ax2) = plt.subplots(1, 2)
+        plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)
+        ax1.set_title('Orig')
+        ax1.imshow(img, cmap='gray')
+        ax2.set_title('Warped')
+        ax2.imshow(warped, cmap='gray')
+        plt.show()
+    return warped
 
 
 def region_of_interest(img, vertices):
