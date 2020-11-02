@@ -226,6 +226,7 @@ def get_perspective_transform(persp_path, persp_ref_points, show_dbg=False):
     left, right = persp_ref_points[0][0], persp_ref_points[3][0]
     dst = np.float32([[left, height1], [left, 0], [right, 0], [right, height1]]).reshape(4, 2)
     M = cv2.getPerspectiveTransform(persp_ref_points, dst)
+    Minv = cv2.getPerspectiveTransform(dst, persp_ref_points)
 
     if show_dbg:
         plt.imshow(image)
@@ -237,7 +238,7 @@ def get_perspective_transform(persp_path, persp_ref_points, show_dbg=False):
         plt.show()
 
     print("done.")
-    return M
+    return M, Minv
 
 
 def warp(img, M, show_dbg=False):
@@ -287,6 +288,9 @@ def find_lane_pixels(binary_warped_img, show_dbg=False):
     left_lane_inds = []
     right_lane_inds = []
 
+    # Draw the limits of the scanned area
+    cv2.rectangle(out_img, (0, 0), (binary_warped_img.shape[1] - 1, binary_warped_img.shape[0] - 1), (255, 0, 0), 8)
+
     # Step through the windows one by one
     for window in range(nwindows):
         # Identify window boundaries in x and y (and right and left)
@@ -298,10 +302,10 @@ def find_lane_pixels(binary_warped_img, show_dbg=False):
         win_xright_high = rightx_current + margin
 
         # Draw the windows on the visualization image
-        cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 2)
-        cv2.circle(out_img, (leftx_current, win_y_high), 4, (0, 255, 0), 4 )
-        cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
-        cv2.circle(out_img, (rightx_current, win_y_high), 4, (0, 255, 0), 4)
+        cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 4)
+        cv2.circle(out_img, (leftx_current, win_y_high), 4, (0, 255, 255), 4 )
+        cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 4)
+        cv2.circle(out_img, (rightx_current, win_y_high), 4, (0, 255, 255), 4)
 
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
@@ -338,45 +342,46 @@ def find_lane_pixels(binary_warped_img, show_dbg=False):
     return leftx, lefty, rightx, righty, out_img
 
 
-def fit_polynomial(leftx, lefty, rightx, righty, dbg_img, show_dbg=False):
+def fit_polynomial(leftx, lefty, rightx, righty, dst_img, show_dbg=False):
     # Fit a second order polynomial
     # print('Fitting polynomial...', end=" ")
 
-    if show_dbg:
-        dbg_img[lefty, leftx] = [255, 0, 0]
-        dbg_img[righty, rightx] = [0, 0, 255]
+    dst_img[lefty, leftx] = [255, 80, 80]
+    dst_img[righty, rightx] = [80, 80, 255]
 
     try:
-        left_fit = np.polyfit(lefty, leftx, 2)
+        left_fit_px = np.polyfit(lefty, leftx, 2)
+        left_fit_m = np.polyfit(CFG['ym_per_pix']*lefty, CFG['xm_per_pix']*leftx, 2)
     except Exception as e:
         print('FAILED to fit left polynomial.')
         if show_dbg:
-            plt.imshow(dbg_img)
+            plt.imshow(dst_img)
             plt.title('FAILED TO FIT LEFT POLYGON')
             plt.show()
     try:
-        right_fit = np.polyfit(righty, rightx, 2)
+        right_fit_px = np.polyfit(righty, rightx, 2)
+        right_fit_m = np.polyfit(CFG['ym_per_pix'] * righty, CFG['xm_per_pix'] * rightx, 2)
     except Exception as e:
         print('FAILED to fit right polynomial.')
         if show_dbg:
-            plt.imshow(dbg_img)
+            plt.imshow(dst_img)
             plt.title('FAILED TO FIT RIGHT POLYGON')
             plt.show()
 
     if show_dbg:
          # Generate x and y values for plotting
-         ploty = np.linspace(0, dbg_img.shape[0] - 1, dbg_img.shape[0])
+         ploty = np.linspace(0, dst_img.shape[0] - 1, dst_img.shape[0])
          try:
-             left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
-             right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
+             left_fitx = left_fit_px[0] * ploty ** 2 + left_fit_px[1] * ploty + left_fit_px[2]
+             right_fitx = right_fit_px[0] * ploty ** 2 + right_fit_px[1] * ploty + right_fit_px[2]
          except TypeError:
-             # Avoids an error if `left` and `right_fit` are still none or incorrect
+             # Avoids an error if `left` and `right_fit_px` are still none or incorrect
              print('The function failed to fit a line!')
              left_fitx = 1 * ploty ** 2 + 1 * ploty
              right_fitx = 1 * ploty ** 2 + 1 * ploty
 
          # Plots the left and right polynomials on the lane lines
-         plt.imshow(dbg_img)
+         plt.imshow(dst_img)
          plt.plot(left_fitx, ploty, color='yellow')
          plt.plot(right_fitx, ploty, color='yellow')
          plt.xlim(0, 1280)
@@ -384,7 +389,7 @@ def fit_polynomial(leftx, lefty, rightx, righty, dbg_img, show_dbg=False):
          plt.show()
 
     # print('done.')
-    return left_fit, right_fit, dbg_img
+    return left_fit_px, right_fit_px, left_fit_m, right_fit_m
 
 
 def draw_polys_inplace(left_fit, right_fit, img_to_modify, show_dbg=False):
@@ -395,12 +400,16 @@ def draw_polys_inplace(left_fit, right_fit, img_to_modify, show_dbg=False):
     left_coords = np.vstack((left_fitx, ploty)).T
     right_coords = np.vstack((right_fitx, ploty)).T
     left_pts = left_coords.reshape((-1, 1, 2))
-    right_pts = right_coords.reshape((-1, 1, 2))
-    color = (255, 255, 0)  # yellow
-    isClosed = False
-    thickness = 4
-    cv2.polylines(img_to_modify, [left_pts], isClosed, color, thickness)
-    cv2.polylines(img_to_modify, [right_pts], isClosed, color, thickness)
+    right_pts = np.flipud(right_coords.reshape((-1, 1, 2)))
+    # color = (255, 255, 0)  # yellow
+    # color = (255, 0, 0)  # red
+    # isClosed = False
+    # thickness = 10
+    # cv2.polylines(img_to_modify, [left_pts], isClosed, color, thickness)
+    # cv2.polylines(img_to_modify, [right_pts], isClosed, color, thickness)
+
+    pts = np.vstack((left_pts, right_pts))
+    cv2.fillPoly(img_to_modify, [pts], (0, 128, 0))
 
     if show_dbg:
         plt.imshow(img_to_modify)
@@ -409,6 +418,49 @@ def draw_polys_inplace(left_fit, right_fit, img_to_modify, show_dbg=False):
 
     return img_to_modify
 
+
+def measure_radius_px(left_fit, right_fit):
+    '''Calculates the curvature of polynomial functions in pixels.'''
+    # Start by generating our fake example data
+    # Make sure to feed in your real data instead in your project!
+    ploty = np.linspace(0, 719, num=720)
+
+    # Define y-value where we want radius of curvature
+    # We'll choose the maximum y-value, corresponding to the bottom of the image
+    y_eval = np.max(ploty)
+
+    # Calculation of R_curve (radius of curvature)
+    left_radius_px = ((1 + (2 * left_fit[0] * y_eval + left_fit[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit[0])
+    right_radius_px = ((1 + (2 * right_fit[0] * y_eval + right_fit[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit[0])
+
+    return left_radius_px, right_radius_px
+
+#
+def measure_radius_m(left_fit, right_fit):
+    '''Calculates the radius of polynomial functions in meters at the bottom of image.'''
+
+    ym_per_pix = 30/720 # meters per pixel in y dimension
+    xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+    # Start by generating our fake example data
+    # Make sure to feed in your real data instead in your project!
+    ploty = np.linspace(0, 719, num=720)
+
+    # Define y-value where we want radius of curvature
+    # We'll choose the maximum y-value, corresponding to the bottom of the image
+    y_eval = np.max(ploty)
+    y_eval_m = y_eval * ym_per_pix
+
+    # x = a * (y**2) + b * y + c
+    # after conversion: xmpp * x = a * (ympp**2) * (y**2) + b * y * ympp + c
+
+
+    left_fit_m = left_fit * xm_per_pix
+    right_fit_m = right_fit * xm_per_pix
+    left_radius_m = ((1 + (2 * left_fit_m[0] * y_eval_m + left_fit_m[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit_m[0])
+    right_radius_m = ((1 + (2 * right_fit_m[0] * y_eval_m + right_fit_m[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit_m[0])
+
+    return left_radius_m, right_radius_m
 
 #
 # def region_of_interest(img, vertices):

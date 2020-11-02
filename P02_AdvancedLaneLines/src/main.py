@@ -1,3 +1,9 @@
+# TODO: bugfix radius
+# TODO: forget the old masking method... use unwarped rect instead
+# TODO: use bigger 2D pic
+# TODO: use higher deg polynom
+
+
 from globals import *
 import matplotlib.image as mpimg
 from camera import Camera
@@ -9,12 +15,15 @@ from moviepy.editor import VideoFileClip
 
 
 # configure settings here
+CFG['ym_per_pix'] = 30./720  # meters per pixel in y dimension
+CFG['xm_per_pix'] = 3.7/700  # meters per pixel in x dimension
 CFG['camera_calib_file'] = '../camera_calib.json'
 CFG['calibration_image_path'] = '../input/camera_cal/calibration*.jpg'
 CFG['road_images'] = '../input/road_images/'
 CFG['calibration_test_target_dir'] = '../output/image_test_undistortion/'
 CFG['perspective_calib_img'] = '../input/road_images/straight_lines2.jpg'
-CFG['perspective_calib_pts'] = np.float32([[271, 682], [593, 450], [689, 450], [1048, 682]])
+#CFG['perspective_calib_pts'] = np.float32([[271, 682], [593, 450], [689, 450], [1048, 682]])
+CFG['perspective_calib_pts'] = np.float32([[217, 719], [593, 450], [689, 450], [1112, 719]])
 CFG['videos_dir'] = '../input/videos/'
 # out dirs
 CFG['road_images_out_dir'] =  '../output/road_images/'
@@ -71,13 +80,10 @@ def main():
     ImageProcessor.init((img_source.shape[1], img_source.shape[0]), GLOBAL['camera'], show_dbg=True)
     process_still_images()
 
-    #process_video(CFG['videos_dir'] + 'project_video.mp4')
-    #process_video(CFG['videos_dir'] + 'challenge_video.mp4')
+    process_video(CFG['videos_dir'] + 'project_video.mp4')
+    process_video(CFG['videos_dir'] + 'challenge_video.mp4')
     process_video(CFG['videos_dir'] + 'harder_challenge_video.mp4')
 
 
 if __name__ == '__main__':
     main()
-
-
-# TODO: forget the old masking method... use unwarped rect instead

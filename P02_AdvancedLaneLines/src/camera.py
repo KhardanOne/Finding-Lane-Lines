@@ -17,11 +17,12 @@ class Camera:
         if save_path:
             success = self.load(save_path)
             if success:
+                print('WARNING: calibration data is loaded from a file. Delete the file and run again to force a recalibration:', save_path)
                 return
 
         # If failed to load: generate and save
         self.calibrate(images_path, pattern_size, show_dbg and False)
-        self.perspective_matrix = get_perspective_transform(persp_path, persp_ref_points, show_dbg and True)
+        self.perspective_matrix, self.perspective_inv_matrix = get_perspective_transform(persp_path, persp_ref_points, show_dbg and True)
         self.save(save_path)
 
     def save(self, path):
@@ -31,6 +32,7 @@ class Camera:
         file.write("mtx", self.matrix)
         file.write("dist", self.distortion_coeffs)
         file.write("persp", self.perspective_matrix)
+        file.write("persp_inv", self.perspective_inv_matrix)
         file.release()
         print('done.')
 
@@ -42,6 +44,7 @@ class Camera:
             self.matrix = file.getNode("mtx").mat()
             self.distortion_coeffs = file.getNode("dist").mat()
             self.perspective_matrix = file.getNode("persp").mat()
+            self.perspective_inv_matrix = file.getNode("persp_inv").mat()
             file.release()
             print('done.')
             return True
