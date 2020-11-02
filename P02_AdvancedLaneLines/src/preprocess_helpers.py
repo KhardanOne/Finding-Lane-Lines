@@ -386,6 +386,30 @@ def fit_polynomial(leftx, lefty, rightx, righty, dbg_img, show_dbg=False):
     print('done.')
     return left_fit, right_fit, dbg_img
 
+
+def draw_polys_inplace(left_fit, right_fit, img_to_modify, show_dbg=False):
+    ploty = np.linspace(0, img_to_modify.shape[0] - 1, img_to_modify.shape[0], dtype=int)
+    left_fitx = (left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]).astype(int)
+    right_fitx = (right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]).astype(int)
+
+    left_coords = np.vstack((left_fitx, ploty)).T
+    right_coords = np.vstack((right_fitx, ploty)).T
+    left_pts = left_coords.reshape((-1, 1, 2))
+    right_pts = right_coords.reshape((-1, 1, 2))
+    color = (255, 255, 0)  # yellow
+    isClosed = False
+    thickness = 4
+    cv2.polylines(img_to_modify, [left_pts], isClosed, color, thickness)
+    cv2.polylines(img_to_modify, [right_pts], isClosed, color, thickness)
+
+    if show_dbg:
+        plt.imshow(img_to_modify)
+        plt.title('Polygon(s)')
+        plt.show()
+
+    return img_to_modify
+
+
 #
 # def region_of_interest(img, vertices):
 #     """Applies a mask defined by vertices to an image.

@@ -32,7 +32,8 @@ class ImageProcessor:
         #masked = apply_mask(binary, cls.mask)
         birdseye = warp(binary, cls.camera.perspective_matrix, show_dbg and False)
         leftx, lefty, rightx, righty, windows_img = find_lane_pixels(birdseye, show_dbg and False)
-        left_fit, right_fit, poly_img = fit_polynomial(leftx, lefty, rightx, righty, windows_img, show_dbg and False)
+        left_fit, right_fit, colored_lane_pixels = fit_polynomial(leftx, lefty, rightx, righty, windows_img, show_dbg and False)
+        poly_img = draw_polys_inplace(left_fit, right_fit, colored_lane_pixels, show_dbg and True)
 
         return poly_img
 
