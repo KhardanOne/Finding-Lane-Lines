@@ -340,7 +340,7 @@ def find_lane_pixels(binary_warped_img, show_dbg=False):
 
 def fit_polynomial(leftx, lefty, rightx, righty, dbg_img, show_dbg=False):
     # Fit a second order polynomial
-    print('Fitting polynomial...', end=" ")
+    # print('Fitting polynomial...', end=" ")
 
     if show_dbg:
         dbg_img[lefty, leftx] = [255, 0, 0]
@@ -349,7 +349,7 @@ def fit_polynomial(leftx, lefty, rightx, righty, dbg_img, show_dbg=False):
     try:
         left_fit = np.polyfit(lefty, leftx, 2)
     except Exception as e:
-        print('FAILED.')
+        print('FAILED to fit left polynomial.')
         if show_dbg:
             plt.imshow(dbg_img)
             plt.title('FAILED TO FIT LEFT POLYGON')
@@ -357,7 +357,7 @@ def fit_polynomial(leftx, lefty, rightx, righty, dbg_img, show_dbg=False):
     try:
         right_fit = np.polyfit(righty, rightx, 2)
     except Exception as e:
-        print('FAILED.')
+        print('FAILED to fit right polynomial.')
         if show_dbg:
             plt.imshow(dbg_img)
             plt.title('FAILED TO FIT RIGHT POLYGON')
@@ -383,7 +383,7 @@ def fit_polynomial(leftx, lefty, rightx, righty, dbg_img, show_dbg=False):
          plt.ylim(720, 0)
          plt.show()
 
-    print('done.')
+    # print('done.')
     return left_fit, right_fit, dbg_img
 
 

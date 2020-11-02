@@ -5,6 +5,7 @@ from camera import Camera
 from image_processor import *
 import numpy as np
 import os
+from moviepy.editor import VideoFileClip
 
 
 # configure settings here
@@ -13,11 +14,11 @@ CFG['calibration_image_path'] = '../input/camera_cal/calibration*.jpg'
 CFG['road_images'] = '../input/road_images/'
 CFG['calibration_test_target_dir'] = '../output/image_test_undistortion/'
 CFG['perspective_calib_img'] = '../input/road_images/straight_lines2.jpg'
-# starting from bottom left cw, xy
 CFG['perspective_calib_pts'] = np.float32([[271, 682], [593, 450], [689, 450], [1048, 682]])
-
+CFG['videos_dir'] = '../input/videos/'
+# out dirs
 CFG['road_images_out_dir'] =  '../output/road_images/'
-
+CFG['videos_out_dir'] = '../output/videos/'
 
 # because it is not possible to pass data to callbacks, ugly globals are needed
 GLOBAL['camera'] = None
@@ -32,8 +33,27 @@ def process_still_images():
         print('Processing image:', path_name)
         source = mpimg.imread(path_name)
         #ImageProcessor.reset()
-        processed = ImageProcessor.do(source, show_dbg=True)
+        processed = ImageProcessor.do(source, show_dbg=False)
         mpimg.imsave(CFG['road_images_out_dir'] + image_name, processed)
+
+
+def process_video(video_path):
+    print('Processing video:', video_path, '...')
+    if not os.path.exists(CFG['videos_out_dir']):
+        os.mkdir(CFG['videos_out_dir'])
+
+    basename = os.path.basename(video_path)
+    outpath = CFG['videos_out_dir'] + basename
+    #clip = VideoFileClip(video_path, audio=False).subclip(0, 5)
+    clip = VideoFileClip(video_path, audio=False)
+
+    # Reinit for each video of possible different image sizes
+    ImageProcessor.init((clip.w, clip.h), GLOBAL['camera'], show_dbg=True)
+    result_clip = clip.fl_image(ImageProcessor.do)
+    result_clip.write_videofile(outpath)
+    result_clip.close()
+    clip.close()
+    print('Saved to:', outpath)
 
 
 def main():
@@ -50,6 +70,10 @@ def main():
     img_source = mpimg.imread('../input/road_images/test4.jpg')
     ImageProcessor.init((img_source.shape[1], img_source.shape[0]), GLOBAL['camera'], show_dbg=True)
     process_still_images()
+
+    #process_video(CFG['videos_dir'] + 'project_video.mp4')
+    #process_video(CFG['videos_dir'] + 'challenge_video.mp4')
+    process_video(CFG['videos_dir'] + 'harder_challenge_video.mp4')
 
 
 if __name__ == '__main__':
