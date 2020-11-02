@@ -29,10 +29,11 @@ class ImageProcessor:
     @classmethod
     def do(cls, img, show_dbg=False):
         undistorted = cls.camera.undistort(img)
-        #binary = combined_threshold_3(undistorted, show_dbg=cls.show_dbg)
         binary = combined_threshold_3(undistorted, show_dbg and False)
         #masked = apply_mask(binary, cls.mask)
-        birdseye = warp(binary, cls.camera.perspective_matrix, show_dbg and True)
+        birdseye = warp(binary, cls.camera.perspective_matrix, show_dbg and False)
+        leftx, lefty, rightx, righty, lanepixels = find_lane_pixels(birdseye, show_dbg and True)
+        pass
 
     @classmethod
     def show(cls, img, title=None):

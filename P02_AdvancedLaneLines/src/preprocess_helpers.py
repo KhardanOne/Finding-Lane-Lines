@@ -254,64 +254,150 @@ def warp(img, M, show_dbg=False):
     return warped
 
 
-def region_of_interest(img, vertices):
-    """Applies a mask defined by vertices to an image.
+def find_lane_pixels(binary_warped_img, show_dbg=False):
+    # Take a histogram of the bottom half of the image
+    histogram = np.sum(binary_warped_img[binary_warped_img.shape[0] // 2:, :], axis=0)
+    # Create an output image to draw on and visualize the result
+    out_img = np.dstack((binary_warped_img, binary_warped_img, binary_warped_img)) * 255
+    # Find the peak of the left and right halves of the histogram
+    # These will be the starting point for the left and right lines
+    midpoint = np.int(histogram.shape[0] // 2)
+    leftx_base = np.argmax(histogram[:midpoint])
+    rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
-    Arguments:
-        img: Source image of 1..4 channels
-        vertices: Vertices that define a polygon.
+    # HYPERPARAMETERS
+    # Choose the number of sliding windows
+    nwindows = 9
+    # Set the width of the windows +/- margin
+    margin = 100
+    # Set minimum number of pixels found to recenter window
+    minpix = 50
 
-    Returns:
-        An image of the same size and channels. All pixels outside the polygon defined by vertices are black.
-    """
-    mask = np.zeros_like(img)
+    # Set height of windows - based on nwindows above and image shape
+    window_height = np.int(binary_warped_img.shape[0] // nwindows)
+    # Identify the x and y positions of all nonzero pixels in the image
+    nonzero = binary_warped_img.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+    # Current positions to be updated later for each window in nwindows
+    leftx_current = leftx_base
+    rightx_current = rightx_base
 
-    # defining a 3 channel or 1 channel color to fill the mask with depending on the input image
-    if len(img.shape) > 2:
-        channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
-        ignore_mask_color = (255,) * channel_count
-    else:
-        ignore_mask_color = 255
+    # Create empty lists to receive left and right lane pixel indices
+    left_lane_inds = []
+    right_lane_inds = []
 
-    # filling pixels inside the polygon defined by "vertices" with the fill color
-    cv2.fillPoly(mask, vertices, ignore_mask_color)
+    # Step through the windows one by one
+    for window in range(nwindows):
+        # Identify window boundaries in x and y (and right and left)
+        win_y_low = binary_warped_img.shape[0] - (window + 1) * window_height
+        win_y_high = binary_warped_img.shape[0] - window * window_height
+        win_xleft_low = leftx_current - margin
+        win_xleft_high = leftx_current + margin
+        win_xright_low = rightx_current - margin
+        win_xright_high = rightx_current + margin
 
-    # returning the image only where mask pixels are nonzero
-    masked_image = cv2.bitwise_and(img, mask)
-    return masked_image
+        # Draw the windows on the visualization image
+        cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 2)
+        cv2.circle(out_img, (leftx_current, win_y_high), 4, (0, 255, 0), 4 )
+        cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
+        cv2.circle(out_img, (rightx_current, win_y_high), 4, (0, 255, 0), 4)
+
+        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
+        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
+
+        # Append these indices to the lists
+        left_lane_inds.append(good_left_inds)
+        right_lane_inds.append(good_right_inds)
+
+        ### TO-DO: If you found > minpix pixels, recenter next window ###
+        ### (`right` or `leftx_current`) on their mean position ###
+        if len(good_left_inds) >= minpix:
+            leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
+        if len(good_right_inds) >= minpix:
+            rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+
+    # Concatenate the arrays of indices (previously was a list of lists of pixels)
+    try:
+        left_lane_inds = np.concatenate(left_lane_inds)
+        right_lane_inds = np.concatenate(right_lane_inds)
+    except ValueError:
+        # Avoids an error if the above is not implemented fully
+        # TODO
+        pass
+
+    # Extract left and right line pixel positions
+    leftx = nonzerox[left_lane_inds]
+    lefty = nonzeroy[left_lane_inds]
+    rightx = nonzerox[right_lane_inds]
+    righty = nonzeroy[right_lane_inds]
+
+    if show_dbg:
+        plt.imshow(out_img)
+        plt.show()
+
+    return leftx, lefty, rightx, righty, out_img
 
 
-def generate_mask(img_width, img_height, top_half_width, horizon):
-    """Generates a trapezoid mask. The trapezoid consists of ones, bacground of zeros.
-
-    Arguments:
-        img_width: Width of the image in pixels.
-        img_height: Height of the image in pixels.
-        top_half_width: Half-width of the trapezoid top edge. Given in screen width ratio.
-            E.g. 0.05 means that the width of the trapezoid top will be 10% of the image width.
-        horizon: The trapezoid top edge's y coordinate in pixels.
-
-    Returns:
-        A numpy array of 4 vertices, shape: (1, 4), dtype=np.int32.
-    """
-    x_top_left = img_width * (0.5 - top_half_width)
-    x_top_right = img_width * (0.5 + top_half_width)
-    vertices = np.array([[(0, img_height), (x_top_left, horizon), (x_top_right, horizon), (img_width, img_height)]],
-                        dtype=np.int32)
-
-    mask = np.zeros(img_width * img_height, dtype=np.uint8).reshape(img_height, -1)
-
-    # filling pixels inside the polygon defined by "vertices" with the fill color
-    cv2.fillPoly(mask, vertices, 255)
-
-    return mask
-
-
-def apply_mask(img, mask):
-    # defining a 3 channel or 1 channel color to fill the mask with depending on the input image
-    if len(img.shape) > 2:
-        channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
-        mask = np.dstack((mask, mask, mask)) if channel_count == 3 else np.dstack((mask, mask, mask, mask))
-
-    masked_image = cv2.bitwise_and(img, mask)
-    return masked_image
+#
+# def region_of_interest(img, vertices):
+#     """Applies a mask defined by vertices to an image.
+#
+#     Arguments:
+#         img: Source image of 1..4 channels
+#         vertices: Vertices that define a polygon.
+#
+#     Returns:
+#         An image of the same size and channels. All pixels outside the polygon defined by vertices are black.
+#     """
+#     mask = np.zeros_like(img)
+#
+#     # defining a 3 channel or 1 channel color to fill the mask with depending on the input image
+#     if len(img.shape) > 2:
+#         channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
+#         ignore_mask_color = (255,) * channel_count
+#     else:
+#         ignore_mask_color = 255
+#
+#     # filling pixels inside the polygon defined by "vertices" with the fill color
+#     cv2.fillPoly(mask, vertices, ignore_mask_color)
+#
+#     # returning the image only where mask pixels are nonzero
+#     masked_image = cv2.bitwise_and(img, mask)
+#     return masked_image
+#
+#
+# def generate_mask(img_width, img_height, top_half_width, horizon):
+#     """Generates a trapezoid mask. The trapezoid consists of ones, bacground of zeros.
+#
+#     Arguments:
+#         img_width: Width of the image in pixels.
+#         img_height: Height of the image in pixels.
+#         top_half_width: Half-width of the trapezoid top edge. Given in screen width ratio.
+#             E.g. 0.05 means that the width of the trapezoid top will be 10% of the image width.
+#         horizon: The trapezoid top edge's y coordinate in pixels.
+#
+#     Returns:
+#         A numpy array of 4 vertices, shape: (1, 4), dtype=np.int32.
+#     """
+#     x_top_left = img_width * (0.5 - top_half_width)
+#     x_top_right = img_width * (0.5 + top_half_width)
+#     vertices = np.array([[(0, img_height), (x_top_left, horizon), (x_top_right, horizon), (img_width, img_height)]],
+#                         dtype=np.int32)
+#
+#     mask = np.zeros(img_width * img_height, dtype=np.uint8).reshape(img_height, -1)
+#
+#     # filling pixels inside the polygon defined by "vertices" with the fill color
+#     cv2.fillPoly(mask, vertices, 255)
+#
+#     return mask
+#
+#
+# def apply_mask(img, mask):
+#     # defining a 3 channel or 1 channel color to fill the mask with depending on the input image
+#     if len(img.shape) > 2:
+#         channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
+#         mask = np.dstack((mask, mask, mask)) if channel_count == 3 else np.dstack((mask, mask, mask, mask))
+#
+#     masked_image = cv2.bitwise_and(img, mask)
+#     return masked_image
