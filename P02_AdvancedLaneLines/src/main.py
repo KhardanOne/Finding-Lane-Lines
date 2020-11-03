@@ -12,9 +12,11 @@ from image_processor import *
 import numpy as np
 import os
 from moviepy.editor import VideoFileClip
+from line_history import LineHistory
 
 
 # configure settings here
+CFG['history_length'] = 10  # in frame count
 CFG['ym_per_pix'] = 30./720  # meters per pixel in y dimension
 CFG['xm_per_pix'] = 3.7/700  # meters per pixel in x dimension
 CFG['camera_calib_file'] = '../camera_calib.json'
@@ -28,6 +30,7 @@ CFG['videos_dir'] = '../input/videos/'
 # out dirs
 CFG['road_images_out_dir'] =  '../output/road_images/'
 CFG['videos_out_dir'] = '../output/videos/'
+
 
 # because it is not possible to pass data to callbacks, ugly globals are needed
 GLOBAL['camera'] = None
@@ -57,7 +60,8 @@ def process_video(video_path):
     clip = VideoFileClip(video_path, audio=False)
 
     # Reinit for each video of possible different image sizes
-    ImageProcessor.init((clip.w, clip.h), GLOBAL['camera'], show_dbg=True)
+    histories = (LineHistory('left'), LineHistory('right'))
+    ImageProcessor.init((clip.w, clip.h), GLOBAL['camera'], histories, show_dbg=True)
     result_clip = clip.fl_image(ImageProcessor.do)
     result_clip.write_videofile(outpath)
     result_clip.close()
@@ -78,7 +82,7 @@ def main():
 
     img_source = mpimg.imread('../input/road_images/test4.jpg')
     ImageProcessor.init((img_source.shape[1], img_source.shape[0]), GLOBAL['camera'], show_dbg=True)
-    process_still_images()
+    #process_still_images()
 
     process_video(CFG['videos_dir'] + 'project_video.mp4')
     process_video(CFG['videos_dir'] + 'challenge_video.mp4')
