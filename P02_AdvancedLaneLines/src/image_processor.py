@@ -81,21 +81,87 @@ class ImageProcessor:
             y += dy
 
     @classmethod
-    def do(cls, img, show_dbg=False):
+    def do_orig_persp(cls, img, verbose=False, show_dbg=False):
         undistorted = cls.camera.undistort(img)
         binary = combined_threshold_3(undistorted, show_dbg and False)
-        #masked = apply_mask(binary, cls.mask)
-        birdseye = warp(binary, cls.camera.perspective_matrix, show_dbg and False)
-        leftx, lefty, rightx, righty, windows_img = find_lane_pixels(birdseye, show_dbg and False)
-        left_fit_px, right_fit_px, left_fit_m, right_fit_m = fit_polynomial(leftx, lefty, rightx, righty, windows_img, show_dbg and False)
+        # masked = apply_mask(binary, cls.mask)
+        return undistorted, binary
+
+    @classmethod
+    def extend(cls, img, x_pad_mult, verbose=False, show_dbg=False):
+        """Example: 2) means the height will be the same, but the width will be 2 + 1 + 2 times wider than original"""
+        x_scale = 1 + 2 * x_pad_mult
+        if len(img.shape) > 2:  #  not grayscale, nor binary
+            shape = (img.shape[0], int(img.shape[1] * (1 + x_pad_mult)), img.shape[2])
+        else:
+            shape = (img.shape[0], int(img.shape[1] * (1 + x_pad_mult)))
+        x_transform = int(img.shape[1] * x_pad_mult)
+        img_extd = np.zeros(shape)
+        img_extd[0, x_transform] = img
+        if verbose:
+            thickness_side, thickness_top, color = 20, 100, (255, 0, 0)
+            top, left, bottom, right = 0, 0, img.shape[0] - 1, img.shape[1] -1
+            cv2.line(img, (left, top), (left, bottom), color, thickness_side)
+            cv2.line(img, (right, top), (right, bottom), color, thickness_side)
+            cv2.line(img, (left, top), (right, bottom), color, thickness_top)
+        if show_dbg:
+            plt.imshow(img)
+            plt.show()
+        return img_extd, x_transform, x_scale
+
+    @classmethod
+    def do_2d(cls, bin_img, verbose=False, show_dbg=False):
+        leftx, lefty, rightx, righty, bin_out = find_lane_pixels(bin_img, verbose=verbose and True,
+                                                                 show_dbg=show_dbg and True)
+        left_fit_px, right_fit_px, left_fit_m, right_fit_m = fit_polynomial(leftx, lefty, rightx, righty, bin_out,   ### TODO: coords are also modified by padding, follow it
+                                                                            verbose=verbose and True,
+                                                                            show_dbg=show_dbg and False)
         #poly_img = draw_polys_inplace(left_fit, right_fit, colored_lane_pixels, show_dbg and True)
+        raw_xy = (leftx, lefty, rightx, righty)
+        fit_px, fit_m = (left_fit_px, right_fit_px), (left_fit_m, right_fit_m)
+        return raw_xy, fit_px, fit_m, bin_windows
+        pass
 
-        owerlay_birdseye = np.zeros_like(img)
-        draw_polys_inplace(left_fit_px, right_fit_px, owerlay_birdseye, show_dbg and True)
-        birdseye_extended = np.dstack((birdseye, birdseye, birdseye)) * 128
+    @classmethod
+    def do_2d_overlay(cls, bin_img, raw_xy, fit_px, bin_windows, size2d, verbose=False, show_dbg=False):
+        bin = np.zeros_like(bin_img)
+        img = np.dstack((bin, bin, bin)) * 128
+        draw_polys_inplace(fit_px[0], fit_px[1], bin, show_dbg and True)
+
         white_patches = cv2.addWeighted(birdseye_extended, 1.0, owerlay_birdseye, 1.0, 0.)
-
         colors_on_green = cv2.addWeighted(white_patches, 1.0, windows_img, 1.0, 0.)
+        pass
+
+    @classmethod
+    def do_persp(cls, img, verbose=False, show_dbg=False):
+        pass
+
+    @classmethod
+    def do_persp_overlay(cls, img, verbose=False, show_dbg=False):
+        pass
+
+    @classmethod
+    def do(cls, img, verbose=False, show_dbg=False):  # verbose: extra info on the video; show_dbg: extra info in window
+        # processing in orig perspective
+        img_orig_persp_corr, bin_orig_persp_corr = cls.do_orig_persp(img, verbose, show_dbg and True)
+
+        # converting to 2D
+        want_to_extend = True  ######################################################################################### tune here
+        x_trfm, x_scale = 0, 1.  # for pixel coord calculation transform and scale
+        if want_to_extend:
+            x_pad_mult = 1  # x will be padded x_pad_mult * widht on the left and with the same amount on the right #### tune here
+            bin_img, x_trfm, x_scale = cls.extend(bin_orig_persp_corr, x_pad_mult)                                      ### TODO: check if identical
+        warped_to_2D = warp(bin_orig_persp_corr, cls.camera.perspective_matrix, show_dbg = show_dbg and True)
+
+        # work in 2D
+        bin2d = cls.do_2d(warped_to_2D, verbose=verbose and True, show_dbg=show_dbg and True)
+        img2d_overlay, img2d_for_persp = cls.do_2d_overlay(bin2d, verbose=verbose and True, show_dbg=show_dbg and True)
+
+        # processing again in perspective
+
+
+        # convert these:
+
         owerlay_persp = warp(colors_on_green, cls.camera.perspective_inv_matrix, show_dbg and False)
         combined = cv2.addWeighted(img, 0.5, owerlay_persp, 1.0, 0.)
 
