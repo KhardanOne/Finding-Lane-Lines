@@ -11,11 +11,6 @@ class ImageProcessor:
     txt = ""
     left_history = None
     right_history = None
-    #default_mask = None
-    #mask = None
-    #width = None
-    #height = None
-    #mask_vertices = None
 
     @classmethod
     def init(cls, size, camera, line_histories = None, show_dbg=False):
@@ -25,10 +20,6 @@ class ImageProcessor:
         if line_histories:
             cls.left_history = line_histories[0]
             cls.right_history = line_histories[1]
-        # cls.width, cls.height = size
-        #cls.default_mask = generate_mask(cls.width, cls.height, 0.05, int(cls.height * 0.6))
-        #cls.mask = cls.default_mask
-        #cls.show_dbg = show_dbg
 
     @classmethod
     def reset(cls):
@@ -82,49 +73,64 @@ class ImageProcessor:
 
     @classmethod
     def do(cls, img, show_dbg=False):
-        undistorted = cls.camera.undistort(img)
-        binary = combined_threshold_3(undistorted, show_dbg and False)
-        #masked = apply_mask(binary, cls.mask)
-        birdseye = warp(binary, cls.camera.perspective_matrix, show_dbg and False)
-        leftx, lefty, rightx, righty, windows_img = find_lane_pixels(birdseye, show_dbg and False)
-        left_fit_px, right_fit_px, left_fit_m, right_fit_m = fit_polynomial(leftx, lefty, rightx, righty, windows_img, show_dbg and False)
-        #poly_img = draw_polys_inplace(left_fit, right_fit, colored_lane_pixels, show_dbg and True)
+        # orig perspective
+        img_undistorted = cls.camera.undistort(img)
+        bin_undistorted = combined_threshold_3(img_undistorted, show_dbg and False)
 
-        owerlay_birdseye = np.zeros_like(img)
-        draw_polys_inplace(left_fit_px, right_fit_px, owerlay_birdseye, show_dbg and True)
-        birdseye_extended = np.dstack((birdseye, birdseye, birdseye)) * 128
-        white_patches = cv2.addWeighted(birdseye_extended, 1.0, owerlay_birdseye, 1.0, 0.)
+        # warp to 2D
+        bin_2d = warp(bin_undistorted, cls.camera.perspective_matrix, show_dbg and False)
+        leftx, lefty, rightx, righty, img_win = find_lane_pixels(bin_2d, show_dbg and False)
+        left_fit_px, right_fit_px, left_fit_m, right_fit_m = fit_polynomial(leftx, lefty, rightx, righty, img_win, show_dbg and False)
 
-        colors_on_green = cv2.addWeighted(white_patches, 1.0, windows_img, 1.0, 0.)
-        owerlay_persp = warp(colors_on_green, cls.camera.perspective_inv_matrix, show_dbg and False)
-        combined = cv2.addWeighted(img, 0.5, owerlay_persp, 1.0, 0.)
+        # use these for road-space and screen-space overlays
+        img_overlay_for_unwarp = np.zeros_like(img)
+        img_overlay_screen = np.zeros_like(img)
+        draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
+        # birdseye_extended = np.dstack((bin_2d, bin_2d, bin_2d)) * 128
+        # img_overlay_for_unwarp = cv2.addWeighted(birdseye_extended, 1.0, img_overlay_for_unwarp, 1.0, 0.)
+        # colors_on_green = cv2.addWeighted(white_patches, 1.0, img_win, 1.0, 0.)
 
-        # left_radius_px, right_radius_px = measure_radius_px(left_fit_px, right_fit_px)
-        # cv2.putText(combined, "Left radius: {} px, right radius: {} px".format(left_radius_px, right_radius_px),
-        #            (0, 40), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
-
+        # texts
         left_radius_m, right_radius_m = measure_radius_px(left_fit_m, right_fit_m)
-        if cls.txt1 == None or cls.frame_count % 10 == 0:
+        if cls.txt1 == None or cls.frame_count % 1 == 0:
             cls.txt1 = "Left radius: {:5.2f}km, right radius: {:5.2f}km".format(left_radius_m/1000., right_radius_m/1000.)
-        cv2.putText(combined, cls.txt1, (0, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
-        cv2.putText(combined, 'Frame: {:d}'.format(cls.frame_count), (0, 50), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
+        cv2.putText(img_overlay_screen, cls.txt1, (0, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
+        cv2.putText(img_overlay_screen, 'Frame: {:d}'.format(cls.frame_count), (0, 50), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
 
         # sanity checks
         lline = Line(cls.frame_count, 'left', img.shape[0], left_fit_px, 1)
         rline = Line(cls.frame_count, 'right', img.shape[0], right_fit_px, 1)
         check_ok_count, check_total_count, sanity_details = cls.sanity_checks(lline, rline, left_fit_px, right_fit_px)
-        cls.sanity_to_img(combined, sanity_details)
+        cls.sanity_to_img(img_overlay_screen, sanity_details)
 
+        # use current line if good, otherwise try to use stored lines if they are good
+        has_left_line, has_right_line = False, False
         if check_ok_count == check_total_count:
-            lline.quality = 5
-            rline.quality = 5
+            lline.quality, rline.quality = 5, 5
+            has_left_line, has_right_line = True, True
+            cls.left_history.update(lline)
+            cls.right_history.update(rline)
+            cv2.putText(img_overlay_screen, 'lines: current fit', (800, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
         else:
             lline.quality = 5 - (check_total_count - check_ok_count)
             rline.quality = 5 - (check_total_count - check_ok_count)
-            # TODO: replace the fits and the images with predicted ones if exist
 
-        cls.left_history.update(lline)
-        cls.right_history.update(rline)
+            # use average coeffs instead
+            has_left_line, left_fit_px = cls.left_history.update(lline)
+            has_right_line, right_fit_px = cls.right_history.update(rline)
+            if has_left_line and has_right_line:
+                cv2.putText(img_overlay_screen, 'lines: from memory', (800, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 170, 0))
+
+        # display lane poly
+        if has_left_line and has_right_line:
+            draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
+        else:
+            cv2.putText(img_overlay_screen, 'lines: missing', (800, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
+
+        # render the overlays
+        img_persp_overlay = warp(img_overlay_for_unwarp, cls.camera.perspective_inv_matrix, show_dbg and False)
+        combined = cv2.addWeighted(img, 0.5, img_persp_overlay, 1.0, 0.)
+        combined = cv2.addWeighted(combined, 1.0, img_overlay_screen, 1.0, 0.)
 
         cls.frame_count += 1
         return combined

@@ -396,26 +396,16 @@ def draw_polys_inplace(left_fit, right_fit, img_to_modify, show_dbg=False):
     ploty = np.linspace(0, img_to_modify.shape[0] - 1, img_to_modify.shape[0], dtype=int)
     left_fitx = (left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]).astype(int)
     right_fitx = (right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]).astype(int)
-
     left_coords = np.vstack((left_fitx, ploty)).T
     right_coords = np.vstack((right_fitx, ploty)).T
     left_pts = left_coords.reshape((-1, 1, 2))
     right_pts = np.flipud(right_coords.reshape((-1, 1, 2)))
-    # color = (255, 255, 0)  # yellow
-    # color = (255, 0, 0)  # red
-    # isClosed = False
-    # thickness = 10
-    # cv2.polylines(img_to_modify, [left_pts], isClosed, color, thickness)
-    # cv2.polylines(img_to_modify, [right_pts], isClosed, color, thickness)
-
     pts = np.vstack((left_pts, right_pts))
     cv2.fillPoly(img_to_modify, [pts], (0, 128, 0))
-
     if show_dbg:
         plt.imshow(img_to_modify)
         plt.title('Polygon(s)')
         plt.show()
-
     return img_to_modify
 
 
@@ -461,66 +451,3 @@ def measure_radius_m(left_fit, right_fit):
     right_radius_m = ((1 + (2 * right_fit_m[0] * y_eval_m + right_fit_m[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit_m[0])
 
     return left_radius_m, right_radius_m
-
-#
-# def region_of_interest(img, vertices):
-#     """Applies a mask defined by vertices to an image.
-#
-#     Arguments:
-#         img: Source image of 1..4 channels
-#         vertices: Vertices that define a polygon.
-#
-#     Returns:
-#         An image of the same size and channels. All pixels outside the polygon defined by vertices are black.
-#     """
-#     mask = np.zeros_like(img)
-#
-#     # defining a 3 channel or 1 channel color to fill the mask with depending on the input image
-#     if len(img.shape) > 2:
-#         channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
-#         ignore_mask_color = (255,) * channel_count
-#     else:
-#         ignore_mask_color = 255
-#
-#     # filling pixels inside the polygon defined by "vertices" with the fill color
-#     cv2.fillPoly(mask, vertices, ignore_mask_color)
-#
-#     # returning the image only where mask pixels are nonzero
-#     masked_image = cv2.bitwise_and(img, mask)
-#     return masked_image
-#
-#
-# def generate_mask(img_width, img_height, top_half_width, horizon):
-#     """Generates a trapezoid mask. The trapezoid consists of ones, bacground of zeros.
-#
-#     Arguments:
-#         img_width: Width of the image in pixels.
-#         img_height: Height of the image in pixels.
-#         top_half_width: Half-width of the trapezoid top edge. Given in screen width ratio.
-#             E.g. 0.05 means that the width of the trapezoid top will be 10% of the image width.
-#         horizon: The trapezoid top edge's y coordinate in pixels.
-#
-#     Returns:
-#         A numpy array of 4 vertices, shape: (1, 4), dtype=np.int32.
-#     """
-#     x_top_left = img_width * (0.5 - top_half_width)
-#     x_top_right = img_width * (0.5 + top_half_width)
-#     vertices = np.array([[(0, img_height), (x_top_left, horizon), (x_top_right, horizon), (img_width, img_height)]],
-#                         dtype=np.int32)
-#
-#     mask = np.zeros(img_width * img_height, dtype=np.uint8).reshape(img_height, -1)
-#
-#     # filling pixels inside the polygon defined by "vertices" with the fill color
-#     cv2.fillPoly(mask, vertices, 255)
-#
-#     return mask
-#
-#
-# def apply_mask(img, mask):
-#     # defining a 3 channel or 1 channel color to fill the mask with depending on the input image
-#     if len(img.shape) > 2:
-#         channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
-#         mask = np.dstack((mask, mask, mask)) if channel_count == 3 else np.dstack((mask, mask, mask, mask))
-#
-#     masked_image = cv2.bitwise_and(img, mask)
-#     return masked_image
