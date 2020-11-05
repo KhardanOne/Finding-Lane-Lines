@@ -78,8 +78,8 @@ def main():
     process_still_images()
 
     process_video(CFG['videos_dir'] + 'project_video.mp4')
-    #process_video(CFG['videos_dir'] + 'challenge_video.mp4')
-    #process_video(CFG['videos_dir'] + 'harder_challenge_video.mp4')
+    process_video(CFG['videos_dir'] + 'challenge_video.mp4')
+    process_video(CFG['videos_dir'] + 'harder_challenge_video.mp4')
 
 
 if __name__ == '__main__':

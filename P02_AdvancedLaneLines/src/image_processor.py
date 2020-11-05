@@ -75,20 +75,26 @@ class ImageProcessor:
             cv2.putText(img, txt, (x, y), cv2.QT_FONT_NORMAL, 1, colors[int(is_ok)])
             y += dy
 
+
+
     @classmethod
     def do(cls, img, show_dbg=False):
-        verbose = False
+        verbose = True
         # orig perspective
         img_undistorted = cls.camera.undistort(img)
-        bin_undistorted = combined_threshold_3(img_undistorted, show_dbg and False)
+        img_extd = extend(img_undistorted)
+        #bin_undistorted = combined_threshold_3(img_undistorted, show_dbg and False)
+
+        bin_undistorted = combined_threshold_3(img_extd, show_dbg and False)
 
         # warp to 2D
         bin_2d = warp(bin_undistorted, cls.camera.perspective_matrix, show_dbg and False)
+        #bin_add_border(bin_2d, border_width=10, sides=(1, 1, 1, 1))
         leftx, lefty, rightx, righty, img_win = find_lane_pixels(bin_2d, show_dbg and False)
         left_fit_px, right_fit_px, left_fit_m, right_fit_m = fit_polynomial(leftx, lefty, rightx, righty, img_win, show_dbg and False)
 
         # use these for road-space and screen-space overlays
-        img_overlay_for_unwarp = np.zeros_like(img)  # this will be warped back to the road surface
+        img_overlay_for_unwarp = np.zeros_like(img_extd)  # this will be warped back to the road surface
         img_overlay_screen = np.zeros_like(img)      # this will stay in screen-space
         # draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
         # birdseye_extended = np.dstack((bin_2d, bin_2d, bin_2d)) * 128
@@ -96,7 +102,7 @@ class ImageProcessor:
         # colors_on_green = cv2.addWeighted(white_patches, 1.0, img_win, 1.0, 0.)
 
         # texts
-        left_r_m, right_r_m, center_dist_m = measure_radius_m(left_fit_m, right_fit_m, img.shape)
+        left_r_m, right_r_m, center_dist_m = measure_radius_m(left_fit_m, right_fit_m, img_extd.shape)
         if cls.txt1 == None or cls.frame_count % 1 == 0:
             cls.txt1 = "Center Offset:{:3d}cm, Radius:{:5d}m, {:5d}m".format(int(center_dist_m*100), int(left_r_m), int(right_r_m))
         cv2.putText(img_overlay_screen, cls.txt1, (0, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
@@ -153,9 +159,22 @@ class ImageProcessor:
 
         # render the overlays
         img_persp_overlay = warp(img_overlay_for_unwarp, cls.camera.perspective_inv_matrix, show_dbg and False)
-        #combined = cv2.addWeighted(img, 0.5, img_persp_overlay, 1.0, 0.)
-        #combined = cv2.addWeighted(combined, 1.0, img_overlay_screen, 1.0, 0.)
+        img_persp_overlay = crop_ref(img_persp_overlay)
+        if verbose:
+            combined = cv2.addWeighted(img, 0.5, img_persp_overlay, 1.0, 0.)
+            combined = cv2.addWeighted(combined, 1.0, img_overlay_screen, 1.0, 0.)
         combined = cv2.addWeighted(img, 1.0, img_persp_overlay, 1.0, 0.)
+
+        if verbose:
+            # add raw pixel data to screen overlay
+            dst_size = (img_overlay_screen.shape[1], img_overlay_screen.shape[0] // 3)
+            img_win_shrinked = cv2.resize(img_win, dst_size)
+            height = 180
+            upper_padding = np.zeros((height, dst_size[0], 3), dtype=np.uint8)
+            lower_padding = np.zeros((dst_size[1] * 2 - height , dst_size[0], 3), dtype=np.uint8)
+            img_win_shrinked = np.vstack((upper_padding, img_win_shrinked, lower_padding))
+            combined = cv2.addWeighted(img_win_shrinked, 1.0, combined, 0.6, 0.)
+
         combined = cv2.addWeighted(combined, 1.0, img_overlay_screen, 1.0, 0.)
 
         cls.frame_count += 1

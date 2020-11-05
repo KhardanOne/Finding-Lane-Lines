@@ -219,10 +219,20 @@ def combined_threshold_3(color_img, show_dbg=False):
     return combined_binary
 
 
-def get_perspective_transform(persp_path, persp_ref_points, show_dbg=False):
+def get_perspective_transform(persp_path, persp_ref_points, show_dbg=False):  # added one image to the left and right
     print("Calculating perspective matrix...", end=" ")
     image = mpimg.imread(persp_path)
     height1 = image.shape[0] - 1
+    width = image.shape[1]
+
+    extended_image = True  # set to True to calc. with one added image to the left and right
+    if extended_image:
+        offset = width
+        offsets = np.array(([[offset, 0.]] * 4), dtype=np.float32)
+        persp_ref_points += offsets
+        if show_dbg:
+            image = extend(image)
+
     left, right = persp_ref_points[0][0], persp_ref_points[3][0]
     dst = np.float32([[left, height1], [left, 0], [right, 0], [right, height1]]).reshape(4, 2)
     M = cv2.getPerspectiveTransform(persp_ref_points, dst)
@@ -256,15 +266,35 @@ def warp(img, M, show_dbg=False):
 
 
 def find_lane_pixels(binary_warped_img, show_dbg=False):
+    verbose = True
+    img_width = binary_warped_img.shape[1]
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped_img[binary_warped_img.shape[0] // 2:, :], axis=0)
+
     # Create an output image to draw on and visualize the result
     out_img = np.dstack((binary_warped_img, binary_warped_img, binary_warped_img)) * 255
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
+
+    if verbose:
+        plotx = np.linspace(0, binary_warped_img.shape[1] - 1, binary_warped_img.shape[1],dtype=np.int) # fill with inc x coords
+        ymax = np.array([binary_warped_img.shape[0]] * binary_warped_img.shape[1])    # fill with heights
+        hist_flipped = ymax - histogram - 1   # turn upside down
+        hist_color = (255, 0, 0)
+        out_img[hist_flipped  , plotx] = hist_color
+        out_img[hist_flipped-1, plotx] = hist_color
+        out_img[hist_flipped-2, plotx] = hist_color
+        out_img[hist_flipped-3, plotx] = hist_color
+        out_img[hist_flipped-4, plotx] = hist_color
+        out_img[hist_flipped-5, plotx] = hist_color
+        out_img[hist_flipped-6, plotx] = hist_color
+        out_img[hist_flipped-7, plotx] = hist_color
+
+    hist_min_x = img_width // 3
+    hist_max_x = img_width * 2 // 3
     midpoint = np.int(histogram.shape[0] // 2)
-    leftx_base = np.argmax(histogram[:midpoint])
-    rightx_base = np.argmax(histogram[midpoint:]) + midpoint
+    leftx_base = np.argmax(histogram[hist_min_x:midpoint]) + hist_min_x
+    rightx_base = np.argmax(histogram[midpoint:hist_max_x]) + midpoint
 
     # HYPERPARAMETERS
     # Choose the number of sliding windows
@@ -303,9 +333,7 @@ def find_lane_pixels(binary_warped_img, show_dbg=False):
 
         # Draw the windows on the visualization image
         cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 4)
-        cv2.circle(out_img, (leftx_current, win_y_high), 4, (0, 255, 255), 4 )
         cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 4)
-        cv2.circle(out_img, (rightx_current, win_y_high), 4, (0, 255, 255), 4)
 
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
@@ -429,3 +457,56 @@ def measure_radius_m(left_fit, right_fit, shape):
     dist_from_center_m = lane_center_m - screen_center_m
 
     return left_radius_m, right_radius_m, dist_from_center_m
+
+def extend(img, show_dbg=False):
+    """Don't forget to modify crop_ref!"""
+    left = np.zeros_like(img)
+    right = np.zeros_like(img)
+    combined = np.hstack((left, img, right))
+    if show_dbg:
+        plt.imshow(combined)
+        plt.show()
+    return combined
+
+def crop_ref(img):
+    """Don't forget to modify extend!!! Returns a ref (not a copy) of the cropped area."""
+    src_width = img.shape[1]
+    dst_width = src_width // 3
+    x_offset = dst_width
+    cropped = img[:, x_offset : x_offset + dst_width]
+    return cropped
+
+def crop_left_third(img):
+    """Don't forget to modify extend!!! Returns a ref (not a copy) of the cropped area."""
+    dst_width = img.shape[1] // 3
+    cropped = img[:, 0:dst_width]
+    return cropped
+
+
+def img_add_border(img, border_width, sides=(1,1,1,1), color=(255,255,255)):
+    """sides start from left, cw"""
+    height, width = img.shape[:2]
+    hw = int(border_width // 2)
+    x1, y1, x2, y2 = hw, hw, width - hw, height - hw
+    if sides[0]:  # left
+        cv2.line(img, (x1, y1), (x1, y2), color, border_width)
+    if sides[1]:  # top
+        cv2.line(img, (x1, y1), (x2, y1), color, border_width)
+    if sides[0]:  # right
+        cv2.line(img, (x2, y1), (x2, y2), color, border_width)
+    if sides[0]:  # bottom
+        cv2.line(img, (x1, y2), (x2, y2), color, border_width)
+
+def bin_add_border(img, border_width, sides=(1,1,1,1)):
+    """sides start from left, cw"""
+    height, width = img.shape[:2]
+    hw = int(border_width // 2)
+    x1, y1, x2, y2 = hw, hw, width - hw, height - hw
+    if sides[0]:  # left
+        cv2.line(img, (x1, y1), (x1, y2), 1, border_width)
+    if sides[1]:  # top
+        cv2.line(img, (x1, y1), (x2, y1), 1, border_width)
+    if sides[0]:  # right
+        cv2.line(img, (x2, y1), (x2, y2), 1, border_width)
+    if sides[0]:  # bottom
+        cv2.line(img, (x1, y2), (x2, y2), 1, border_width)
