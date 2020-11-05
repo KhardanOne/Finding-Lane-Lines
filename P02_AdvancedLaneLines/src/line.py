@@ -33,7 +33,7 @@ class Line:
         else:
             dists = xs - xos
         deviations = dists.max() - dists.min()
-        sane = 1 if deviations < 200 else 0  # in pixels in 2D  ############################################# tune here
+        sane = 1 if deviations < 250 else 0  # in pixels in 2D  ############################################# tune here
         return sane, deviations
 
     def is_sane_other_dist(self, other_lane):

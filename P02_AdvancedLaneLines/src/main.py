@@ -10,7 +10,7 @@ from line_history import LineHistory
 
 
 # configure settings here
-CFG['history_length'] = 10  # in frame count
+CFG['history_length'] = 6  # in frame count
 CFG['ym_per_pix'] = 30./720  # meters per pixel in y dimension
 CFG['xm_per_pix'] = 3.7/700  # meters per pixel in x dimension
 CFG['camera_calib_file'] = '../camera_calib.json'
@@ -49,8 +49,8 @@ def process_video(video_path):
 
     basename = os.path.basename(video_path)
     outpath = CFG['videos_out_dir'] + basename
-    #clip = VideoFileClip(video_path, audio=False).subclip(0, 5)
-    clip = VideoFileClip(video_path, audio=False)
+    clip = VideoFileClip(video_path, audio=False).subclip(0, 10)  ################################ TODO: use full videos
+    #clip = VideoFileClip(video_path, audio=False)
 
     # Reinit for each video of possible different image sizes
     histories = (LineHistory('left'), LineHistory('right'))
@@ -75,7 +75,7 @@ def main():
 
     img_source = mpimg.imread('../input/road_images/test4.jpg')
     ImageProcessor.init((img_source.shape[1], img_source.shape[0]), GLOBAL['camera'], show_dbg=True)
-    process_still_images()
+    # process_still_images()
 
     process_video(CFG['videos_dir'] + 'project_video.mp4')
     process_video(CFG['videos_dir'] + 'challenge_video.mp4')

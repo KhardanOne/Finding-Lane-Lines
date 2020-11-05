@@ -34,7 +34,8 @@ class ImageProcessor:
     def sanity_checks(cls, left_line, right_line, left_fit_px, right_fit_px):
         ok_parallel, deviations = left_line.is_sane_parallel(right_line)
         ok_distance, min, max = left_line.is_sane_other_dist(right_line)
-        results = np.array([ok_parallel, ok_distance])
+        disp_results = np.array([ok_parallel, ok_distance])
+        results = np.array([ok_distance, ok_parallel])
         strs = [
             'Parallel {} {}'.format(
                 'OK' if ok_parallel else 'INSANE',
@@ -49,7 +50,8 @@ class ImageProcessor:
         if cls.has_history():
             ok_laverage, lavg, ldiffs = cls.left_history.is_sane_avg(left_fit_px)
             ok_raverage, ravg, rdiffs = cls.right_history.is_sane_avg(right_fit_px)
-            results = np.hstack((results, [ok_laverage, ok_raverage]))
+            disp_results = np.hstack((disp_results, [ok_laverage, ok_raverage]))
+            results = np.hstack((results, [ok_laverage and ok_raverage]))
             strs += [
                 'Left history {} {}'.format(
                     'OK' if ok_laverage else 'INSANE',
@@ -60,9 +62,10 @@ class ImageProcessor:
                     'coeff diffs: {:8.7f}, {:5.3f}, {:5.1f}'.format(rdiffs[0], rdiffs[1], rdiffs[2])
                 ),
             ]
-        ok_count = results.sum()
-        merged = np.vstack((results, strs)).T
-        return ok_count, len(results), merged
+        ok_count = disp_results.sum()
+        display_res_merged = np.vstack((disp_results, strs)).T
+
+        return results, len(disp_results), display_res_merged
 
     @classmethod
     def sanity_to_img(cls, img, details):
@@ -101,32 +104,36 @@ class ImageProcessor:
         # sanity checks
         lline = Line(cls.frame_count, 'left', img.shape[0], left_fit_px, 1)
         rline = Line(cls.frame_count, 'right', img.shape[0], right_fit_px, 1)
-        check_ok_count, check_total_count, sanity_details = cls.sanity_checks(lline, rline, left_fit_px, right_fit_px)
+        sanity_res, check_total_count, sanity_details = cls.sanity_checks(lline, rline, left_fit_px, right_fit_px)
+        sanity_count = np.count_nonzero(sanity_res)
+        sanity_max = len(sanity_res)
         cls.sanity_to_img(img_overlay_screen, sanity_details)
 
-        enable_history = False
+        # apply prior info
+        enable_history = True
         has_left_line, has_right_line = True, True
-        if enable_history and cls.left_history and cls.right_history:
+        left_fit_px_archive, right_fit_px_archive = left_fit_px, right_fit_px
+        if enable_history and cls.left_history and cls.right_history:  ################################################# enable / disable history here
             # use current line if good, otherwise try to use stored lines if they are good
             if cls.frame_count == 874:  ##################################################### DEBUG
                 print('x')
-            if check_ok_count == check_total_count:
+            if sanity_res[0] and sanity_res[1]:  # parallel and dist ok
                 lline.quality, rline.quality = 5, 5
-                left_fit_px_archive, right_fit_px_archive = left_fit_px, right_fit_px
+
                 has_left_line, left_fit_px = cls.left_history.update(lline)  # use avg and update
                 has_right_line, right_fit_px = cls.right_history.update(rline)
                 if has_left_line or has_right_line:
                     cv2.putText(img_overlay_screen, 'Lines: current fit smoothed', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
                 else:  # avg is not usable, fallback to current fit without smoothing
                     left_fit_px, right_fit_px = left_fit_px_archive, right_fit_px_archive
-                    cv2.putText(img_overlay_screen, 'Lines: current fit', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
+                    cv2.putText(img_overlay_screen, 'Lines: bad avg, falling back to current', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
             else:
-                lline.quality = 5 - (check_total_count - check_ok_count)
-                rline.quality = 5 - (check_total_count - check_ok_count)
+                # lline.quality = 5 - (check_total_count - check_ok_count)
+                # rline.quality = 5 - (check_total_count - check_ok_count)
 
                 # use average coeffs instead
-                has_left_line, left_fit_px = cls.left_history.get_avg_coeffs(quality_limit=5)  # use avg, do not update
-                has_right_line, right_fit_px = cls.right_history.get_avg_coeffs(quality_limit=5)
+                has_left_line, left_fit_px = cls.left_history.get_avg_coeffs_and_remove(quality_limit=5)  # use avg, do not update
+                has_right_line, right_fit_px = cls.right_history.get_avg_coeffs_and_remove(quality_limit=5)
                 if has_left_line and has_right_line:
                     cv2.putText(img_overlay_screen, 'Lines: from memory', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 170, 0))
 
@@ -134,6 +141,7 @@ class ImageProcessor:
         if has_left_line and has_right_line:
             draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
         else:
+            draw_polys_inplace(left_fit_px_archive, right_fit_px_archive, img_overlay_for_unwarp, show_dbg and True)
             cv2.putText(img_overlay_screen, 'Lines: missing', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
 
         # render the overlays

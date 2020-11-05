@@ -18,8 +18,11 @@ class LineHistory:
         raise NotImplemented
         pass
 
-    def get_avg_coeffs(self, quality_limit=4):
-        """Returns True if avg is found, False otherwise. Second return value is the coeffs np.array."""
+    def _get_avg_coeffs(self, quality_limit=4):
+        """
+        Don't forget to remove the last element after using this!
+        Returns True if avg is found, False otherwise. Second return value is the coeffs np.array.
+        """
         sums = np.array([0] * 3, dtype=np.float64)
         count = 0
         for line in self.history:
@@ -32,6 +35,11 @@ class LineHistory:
         else:
             return False, np.array([0., 0., 80])
 
+    def get_avg_coeffs_and_remove(self, quality_limit=4):
+        avg = self._get_avg_coeffs(quality_limit)
+        self._delete_oldest()
+        return avg
+
     def get_raw_xy(self):
         """!!! Not implemented !!! Return last x y raw data. Improved version: use derivatives for prediction."""
         raise NotImplemented
@@ -39,10 +47,10 @@ class LineHistory:
 
     def is_sane_avg(self, future_fit):
         """False if it deviates from the stored avg. Returns True if there is no enough data or it is OK."""
-        if self._get_size() < 5:
+        if self._get_size() < 3: ####################################################################################### tune here
             return True, np.array([0., 0., 0.]), np.array([0., 0., 0.])
-        limits = np.array([0.0003, 0.5, 180.])  ############################################################# tune here
-        has_avg, avg = self.get_avg_coeffs()
+        limits = np.array([0.0003, 0.5, 180.])  ######################################################################## tune here
+        has_avg, avg = self._get_avg_coeffs()
         if not has_avg:  # not enough data yet
             return True, np.array([0., 0., 0.]), np.array([0., 0., 0.])
         diffs = np.abs(future_fit - avg)
@@ -50,7 +58,7 @@ class LineHistory:
         return result, avg, diffs
 
     def is_sane_future(self, future_fit):
-        """!!! Not implemented !!! Like is_sane_avg but it also takes into account the deried fit."""
+        """!!! Not implemented !!! Like is_sane_avg but it also takes into account the derived fit."""
         raise NotImplemented
         pass
 
@@ -59,7 +67,9 @@ class LineHistory:
         line.side = line.side if line.side else self.side
         self._shift_stored_data()
         self.history[0] = line
-        avg = self.get_avg_coeffs()
+        avg = self._get_avg_coeffs()
+        if not avg:  # if there is not enough good quality stored data but we have a current fit, then use the current, this should never happen
+            avg = line.coeffs
         return avg
 
     def _get_size(self):
@@ -76,25 +86,8 @@ class LineHistory:
             self.history[dst] = self.history[src]
         self.history[0] = None
 
-
-        # # was the_quality line detected in the last iteration?
-        # self.detected = False
-        # # x values of the last n fits of the line
-        # self.recent_xfitted = []
-        # #average x values of the fitted line over the last n iterations
-        # self.bestx = None
-        # #polynomial coefficients averaged over the last n iterations
-        # self.best_fit = None
-        # #polynomial coefficients for the most recent fit
-        # self.current_fit = [np.array([False])]
-        # #radius of curvature of the line in some units
-        # self.radius_of_curvature = None
-        # #distance in meters of vehicle center from the line
-        # self.line_base_pos = None
-        # #difference in fit coefficients between last and new fits
-        # self.diffs = np.array([0,0,0], dtype='float')
-        # #x values for detected line pixels
-        # self.allx = None
-        # #y values for detected line pixels
-        # self.ally = None
-
+    def _delete_oldest(self):
+        for target in reversed(range(CFG['history_length'])):  # optimization possibility: store the index
+            if self.history[target]:
+                self.history[target] = None
+                break
