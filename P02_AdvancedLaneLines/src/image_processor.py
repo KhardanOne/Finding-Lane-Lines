@@ -35,7 +35,7 @@ class ImageProcessor:
         ok_parallel, deviations = left_line.is_sane_parallel(right_line)
         ok_distance, min, max = left_line.is_sane_other_dist(right_line)
         disp_results = np.array([ok_parallel, ok_distance])
-        results = np.array([ok_distance, ok_parallel])
+        results = np.array([ok_parallel, ok_distance])
         strs = [
             'Parallel {} {}'.format(
                 'OK' if ok_parallel else 'INSANE',
@@ -89,8 +89,16 @@ class ImageProcessor:
 
         # warp to 2D
         bin_2d = warp(bin_undistorted, cls.camera.perspective_matrix, show_dbg and False)
-        #bin_add_border(bin_2d, border_width=10, sides=(1, 1, 1, 1))
-        leftx, lefty, rightx, righty, img_win = find_lane_pixels(bin_2d, show_dbg and False)
+        if (  # prior polys can be used
+            cls.left_history and cls.right_history
+            and cls.left_history.history[0] and cls.left_history.history[0].quality == 5
+            and cls.right_history.history[0] and cls.right_history.history[0].quality == 5
+        ):
+            left_fit, right_fit = cls.left_history.history[0].coeffs, cls.right_history.history[0].coeffs
+            leftx, lefty, rightx, righty, img_win = find_lane_pixels_around_poly(bin_2d, left_fit, right_fit, show_dbg and False)
+        else:
+            leftx, lefty, rightx, righty, img_win = find_lane_pixels_sliding_window(bin_2d, show_dbg and False)
+
         left_fit_px, right_fit_px, left_fit_m, right_fit_m = fit_polynomial(leftx, lefty, rightx, righty, img_win, show_dbg and False)
 
         # use these for road-space and screen-space overlays
@@ -139,12 +147,17 @@ class ImageProcessor:
                     if verbose:
                         cv2.putText(img_overlay_screen, 'Lines: bad avg, falling back to current', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
             else:
-                # lline.quality = 5 - (check_total_count - check_ok_count)
-                # rline.quality = 5 - (check_total_count - check_ok_count)
+                lline.quality = 2  # TODO
+                rline.quality = 2  # TODO
+                #cls.left_history.update(lline)
+                #cls.righ_history.update(lline)
 
                 # use average coeffs instead
-                has_left_line, left_fit_px = cls.left_history.get_avg_coeffs_and_remove(quality_limit=5)  # use avg, do not update
-                has_right_line, right_fit_px = cls.right_history.get_avg_coeffs_and_remove(quality_limit=5)
+                # TODO: if removed from history, then alwasy be empty. Find other way to clean up very old lines.
+                # has_left_line, left_fit_px = cls.left_history.get_avg_coeffs_and_remove(quality_limit=5)  # use avg, do not update
+                # has_right_line, right_fit_px = cls.right_history.get_avg_coeffs_and_remove(quality_limit=5)
+                has_left_line, left_fit_px = cls.left_history._get_avg_coeffs(quality_limit=5)  # use avg, do not update
+                has_right_line, right_fit_px = cls.right_history._get_avg_coeffs(quality_limit=5)
                 if has_left_line and has_right_line:
                     if verbose:
                         cv2.putText(img_overlay_screen, 'Lines: from memory', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 170, 0))

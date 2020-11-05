@@ -11,7 +11,6 @@ class Line:
         # 4 - so-so fit found
         # 5 - perfect fit
         self.quality = quality
-        self.lane_info = None               # center offset, line radiuses
         self.side = side                    # 'left' or 'right'
         self.frame = frame_count            # in which frame was the line last time updated
         self.coeffs = fit                   # polynomial coefficients

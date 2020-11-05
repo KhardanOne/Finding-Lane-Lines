@@ -265,7 +265,7 @@ def warp(img, M, show_dbg=False):
     return warped
 
 
-def find_lane_pixels(binary_warped_img, show_dbg=False):
+def find_lane_pixels_sliding_window(binary_warped_img, show_dbg=False):
     verbose = True
     img_width = binary_warped_img.shape[1]
     # Take a histogram of the bottom half of the image
@@ -369,6 +369,37 @@ def find_lane_pixels(binary_warped_img, show_dbg=False):
 
     return leftx, lefty, rightx, righty, out_img
 
+
+def find_lane_pixels_around_poly(binary_warped_img, left_fit, right_fit, show_dbg=False):
+    verbose = True
+    out_img = np.dstack((binary_warped_img, binary_warped_img, binary_warped_img)) * 255
+
+    # grab activated pixels
+    nonzero = binary_warped_img.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+
+    margin = 100
+    left_lane_inds = ((nonzerox > (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy +
+                    left_fit[2] - margin)) & (nonzerox < (left_fit[0]*(nonzeroy**2) +
+                    left_fit[1]*nonzeroy + left_fit[2] + margin)))
+    right_lane_inds = ((nonzerox > (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy +
+                    right_fit[2] - margin)) & (nonzerox < (right_fit[0]*(nonzeroy**2) +
+                    right_fit[1]*nonzeroy + right_fit[2] + margin)))
+
+    # extract left and right line pixel positions
+    leftx = nonzerox[left_lane_inds]
+    lefty = nonzeroy[left_lane_inds]
+    rightx = nonzerox[right_lane_inds]
+    righty = nonzeroy[right_lane_inds]
+
+    verbose = True
+    if verbose:
+        # Color in left and right line pixels
+        out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
+        out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
+
+    return leftx, lefty, rightx, righty, out_img
 
 def fit_polynomial(leftx, lefty, rightx, righty, dst_img, show_dbg=False):
     """Fit a second order polynomial"""
