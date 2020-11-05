@@ -75,9 +75,9 @@ def main():
 
     img_source = mpimg.imread('../input/road_images/test4.jpg')
     ImageProcessor.init((img_source.shape[1], img_source.shape[0]), GLOBAL['camera'], show_dbg=True)
-    process_still_images()
 
-    process_video(CFG['videos_dir'] + 'project_video.mp4')
+    #process_still_images()
+    #process_video(CFG['videos_dir'] + 'project_video.mp4')
     process_video(CFG['videos_dir'] + 'challenge_video.mp4')
     process_video(CFG['videos_dir'] + 'harder_challenge_video.mp4')
 

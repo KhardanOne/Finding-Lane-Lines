@@ -83,9 +83,7 @@ class ImageProcessor:
         # orig perspective
         img_undistorted = cls.camera.undistort(img)
         img_extd = extend(img_undistorted)
-        #bin_undistorted = combined_threshold_3(img_undistorted, show_dbg and False)
-
-        bin_undistorted = combined_threshold_3(img_extd, show_dbg and False)
+        bin_undistorted = combined_threshold_4(img_extd, show_dbg and False)
 
         # warp to 2D
         bin_2d = warp(bin_undistorted, cls.camera.perspective_matrix, show_dbg and False)
@@ -104,10 +102,6 @@ class ImageProcessor:
         # use these for road-space and screen-space overlays
         img_overlay_for_unwarp = np.zeros_like(img_extd)  # this will be warped back to the road surface
         img_overlay_screen = np.zeros_like(img)      # this will stay in screen-space
-        # draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
-        # birdseye_extended = np.dstack((bin_2d, bin_2d, bin_2d)) * 128
-        # img_overlay_for_unwarp = cv2.addWeighted(birdseye_extended, 1.0, img_overlay_for_unwarp, 1.0, 0.)
-        # colors_on_green = cv2.addWeighted(white_patches, 1.0, img_win, 1.0, 0.)
 
         # texts
         left_r_m, right_r_m, center_dist_m = measure_radius_m(left_fit_m, right_fit_m, img_extd.shape)
@@ -147,9 +141,6 @@ class ImageProcessor:
         # render the overlays
         img_persp_overlay = warp(img_overlay_for_unwarp, cls.camera.perspective_inv_matrix, show_dbg and False)
         img_persp_overlay = crop_ref(img_persp_overlay)
-        # if verbose:
-        #     combined = cv2.addWeighted(img, 0.5, img_persp_overlay, 1.0, 0.)
-        #     combined = cv2.addWeighted(combined, 1.0, img_overlay_screen, 1.0, 0.)
         combined = cv2.addWeighted(img, 1.0, img_persp_overlay, 1.0, 0.)
 
         if verbose:

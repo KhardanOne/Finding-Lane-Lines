@@ -112,7 +112,7 @@ def combined_threshold_1(color_img, show_dbg=False):
         plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)
         plt.show()
 
-    return bin_combined
+    return bin_combined.astype(np.uint8)
 
 
 def combined_threshold_2(color_img, show_dbg=False):
@@ -199,6 +199,52 @@ def combined_threshold_3(color_img, show_dbg=False):
     # Combine the two binary thresholds
     combined_binary = np.zeros_like(sxbinary)
     combined_binary[(s_binary == 1) | (sxbinary == 1)] = 1
+
+    # Plotting thresholded images
+    if show_dbg:
+        f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 10))
+        ax1.set_title('Stacked thresholds')
+        ax1.imshow(color_binary)
+
+        ax2.set_title('Combined S channel and gradient thresholds')
+        ax2.imshow(combined_binary, cmap='gray')
+
+        mcc = multichannel_canny(color_img)
+
+        ax3.set_title('Multichannel Canny')
+        ax3.imshow(mcc, cmap='gray')
+
+        plt.show()
+
+    return combined_binary
+
+
+def combined_threshold_4(color_img, show_dbg=False):
+    """Applies different methods to find the thresholds in the image."""
+    hls = cv2.cvtColor(color_img, cv2.COLOR_RGB2HLS)
+    s_channel = hls[:, :, 2]
+    gray = cv2.cvtColor(color_img, cv2.COLOR_RGB2GRAY)
+    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0)  # Take the derivative in x
+    abs_sobelx = np.absolute(sobelx)  # Absolute x derivative to accentuate lines away from horizontal
+    scaled_sobel = np.uint8(255 * abs_sobelx / np.max(abs_sobelx))
+
+    # Threshold x gradient
+    thresh_min, thresh_max = 20, 100
+    sxbinary = np.zeros_like(scaled_sobel)
+    sxbinary[(scaled_sobel >= thresh_min) & (scaled_sobel <= thresh_max)] = 255
+
+    # Threshold color channel
+    s_thresh_min, s_thresh_max = 170, 255
+    s_binary = np.zeros_like(s_channel)
+    s_binary[(s_channel >= s_thresh_min) & (s_channel <= s_thresh_max)] = 255
+
+    # Stack each channel to view their individual contributions in green and blue respectively
+    # This returns a stack of the two binary images, whose components you can see as different colors
+    color_binary = np.dstack((np.zeros_like(sxbinary), sxbinary, s_binary))
+
+    # Combine the two binary thresholds
+    combined_binary = np.zeros_like(sxbinary)
+    combined_binary[(s_binary == 255) | (sxbinary == 255)] = 1
 
     # Plotting thresholded images
     if show_dbg:
