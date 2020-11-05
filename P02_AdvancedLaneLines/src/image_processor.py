@@ -85,17 +85,20 @@ class ImageProcessor:
         # use these for road-space and screen-space overlays
         img_overlay_for_unwarp = np.zeros_like(img)
         img_overlay_screen = np.zeros_like(img)
-        draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
+        # draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
         # birdseye_extended = np.dstack((bin_2d, bin_2d, bin_2d)) * 128
         # img_overlay_for_unwarp = cv2.addWeighted(birdseye_extended, 1.0, img_overlay_for_unwarp, 1.0, 0.)
         # colors_on_green = cv2.addWeighted(white_patches, 1.0, img_win, 1.0, 0.)
 
         # texts
-        left_radius_m, right_radius_m = measure_radius_px(left_fit_m, right_fit_m)
+        left_radius_m, right_radius_m, center_dist_fpx = measure_radius_px(left_fit_m, right_fit_m, img.shape)
+        conv = CFG['xm_per_pix']
+        left_radius_km, right_radius_km, center_dist_cm = left_radius_m * conv/1000, right_radius_m * conv/100, int(center_dist_fpx * conv)
         if cls.txt1 == None or cls.frame_count % 1 == 0:
-            cls.txt1 = "Left radius: {:5.2f}km, right radius: {:5.2f}km".format(left_radius_m/1000., right_radius_m/1000.)
+            cls.txt1 = "Left R: {:5.2f}km, right R: {:5.2f}km, distance from center: {}cm".format(left_radius_m/1000., right_radius_m/1000., center_dist_cm)
         cv2.putText(img_overlay_screen, cls.txt1, (0, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
         cv2.putText(img_overlay_screen, 'Frame: {:d}'.format(cls.frame_count), (0, 50), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
+
 
         # sanity checks
         lline = Line(cls.frame_count, 'left', img.shape[0], left_fit_px, 1)
@@ -105,27 +108,34 @@ class ImageProcessor:
 
         # use current line if good, otherwise try to use stored lines if they are good
         has_left_line, has_right_line = False, False
-        if check_ok_count == check_total_count:
-            lline.quality, rline.quality = 5, 5
-            has_left_line, has_right_line = True, True
-            cls.left_history.update(lline)
-            cls.right_history.update(rline)
-            cv2.putText(img_overlay_screen, 'lines: current fit', (800, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
-        else:
-            lline.quality = 5 - (check_total_count - check_ok_count)
-            rline.quality = 5 - (check_total_count - check_ok_count)
-
-            # use average coeffs instead
-            has_left_line, left_fit_px = cls.left_history.update(lline)
-            has_right_line, right_fit_px = cls.right_history.update(rline)
-            if has_left_line and has_right_line:
-                cv2.putText(img_overlay_screen, 'lines: from memory', (800, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 170, 0))
-
-        # display lane poly
-        if has_left_line and has_right_line:
-            draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
-        else:
-            cv2.putText(img_overlay_screen, 'lines: missing', (800, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
+        # if check_ok_count == check_total_count:
+        #     if cls.frame_count == 874:
+        #         print('x')
+        #         pass
+        #     lline.quality, rline.quality = 5, 5
+        #     left_fit_px_archive, right_fit_px_archive = left_fit_px, right_fit_px
+        #     has_left_line, left_fit_px = cls.left_history.update(lline)  # use avg and update
+        #     has_right_line, right_fit_px = cls.right_history.update(rline)
+        #     if has_left_line or has_right_line:
+        #         cv2.putText(img_overlay_screen, 'Lines: current fit smoothed', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
+        #     else:  # avg is not usable, fallback to current fit without smoothing
+        #         left_fit_px, right_fit_px = left_fit_px_archive, right_fit_px_archive
+        #         cv2.putText(img_overlay_screen, 'Lines: current fit', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
+        # else:
+        #     lline.quality = 5 - (check_total_count - check_ok_count)
+        #     rline.quality = 5 - (check_total_count - check_ok_count)
+        #
+        #     # use average coeffs instead
+        #     has_left_line, left_fit_px = cls.left_history.get_avg_coeffs()  # use avg, do not update
+        #     has_right_line, right_fit_px = cls.right_history.get_avg_coeffs()
+        #     if has_left_line and has_right_line:
+        #         cv2.putText(img_overlay_screen, 'Lines: from memory', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 170, 0))
+        #
+        # # display lane poly
+        # if has_left_line and has_right_line:
+        draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
+        # else:
+        #     cv2.putText(img_overlay_screen, 'Lines: missing', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
 
         # render the overlays
         img_persp_overlay = warp(img_overlay_for_unwarp, cls.camera.perspective_inv_matrix, show_dbg and False)
