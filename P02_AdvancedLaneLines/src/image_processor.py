@@ -104,36 +104,37 @@ class ImageProcessor:
         check_ok_count, check_total_count, sanity_details = cls.sanity_checks(lline, rline, left_fit_px, right_fit_px)
         cls.sanity_to_img(img_overlay_screen, sanity_details)
 
-        # use current line if good, otherwise try to use stored lines if they are good
-        has_left_line, has_right_line = False, False
-        # if check_ok_count == check_total_count:
-        #     if cls.frame_count == 874:
-        #         print('x')
-        #         pass
-        #     lline.quality, rline.quality = 5, 5
-        #     left_fit_px_archive, right_fit_px_archive = left_fit_px, right_fit_px
-        #     has_left_line, left_fit_px = cls.left_history.update(lline)  # use avg and update
-        #     has_right_line, right_fit_px = cls.right_history.update(rline)
-        #     if has_left_line or has_right_line:
-        #         cv2.putText(img_overlay_screen, 'Lines: current fit smoothed', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
-        #     else:  # avg is not usable, fallback to current fit without smoothing
-        #         left_fit_px, right_fit_px = left_fit_px_archive, right_fit_px_archive
-        #         cv2.putText(img_overlay_screen, 'Lines: current fit', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
-        # else:
-        #     lline.quality = 5 - (check_total_count - check_ok_count)
-        #     rline.quality = 5 - (check_total_count - check_ok_count)
-        #
-        #     # use average coeffs instead
-        #     has_left_line, left_fit_px = cls.left_history.get_avg_coeffs()  # use avg, do not update
-        #     has_right_line, right_fit_px = cls.right_history.get_avg_coeffs()
-        #     if has_left_line and has_right_line:
-        #         cv2.putText(img_overlay_screen, 'Lines: from memory', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 170, 0))
-        #
-        # # display lane poly
-        # if has_left_line and has_right_line:
-        draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
-        # else:
-        #     cv2.putText(img_overlay_screen, 'Lines: missing', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
+        enable_history = False
+        has_left_line, has_right_line = True, True
+        if enable_history and cls.left_history and cls.right_history:
+            # use current line if good, otherwise try to use stored lines if they are good
+            if cls.frame_count == 874:  ##################################################### DEBUG
+                print('x')
+            if check_ok_count == check_total_count:
+                lline.quality, rline.quality = 5, 5
+                left_fit_px_archive, right_fit_px_archive = left_fit_px, right_fit_px
+                has_left_line, left_fit_px = cls.left_history.update(lline)  # use avg and update
+                has_right_line, right_fit_px = cls.right_history.update(rline)
+                if has_left_line or has_right_line:
+                    cv2.putText(img_overlay_screen, 'Lines: current fit smoothed', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
+                else:  # avg is not usable, fallback to current fit without smoothing
+                    left_fit_px, right_fit_px = left_fit_px_archive, right_fit_px_archive
+                    cv2.putText(img_overlay_screen, 'Lines: current fit', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
+            else:
+                lline.quality = 5 - (check_total_count - check_ok_count)
+                rline.quality = 5 - (check_total_count - check_ok_count)
+
+                # use average coeffs instead
+                has_left_line, left_fit_px = cls.left_history.get_avg_coeffs(quality_limit=5)  # use avg, do not update
+                has_right_line, right_fit_px = cls.right_history.get_avg_coeffs(quality_limit=5)
+                if has_left_line and has_right_line:
+                    cv2.putText(img_overlay_screen, 'Lines: from memory', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 170, 0))
+
+        # display lane poly
+        if has_left_line and has_right_line:
+            draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
+        else:
+            cv2.putText(img_overlay_screen, 'Lines: missing', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
 
         # render the overlays
         img_persp_overlay = warp(img_overlay_for_unwarp, cls.camera.perspective_inv_matrix, show_dbg and False)

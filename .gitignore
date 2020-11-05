@@ -1,4 +1,6 @@
 .idea/
+P02_AdvancedLaneLines/output/videos/
+*.mp4
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

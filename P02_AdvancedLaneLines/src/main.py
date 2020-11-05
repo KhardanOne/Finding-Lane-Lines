@@ -18,7 +18,6 @@ CFG['calibration_image_path'] = '../input/camera_cal/calibration*.jpg'
 CFG['road_images'] = '../input/road_images/'
 CFG['calibration_test_target_dir'] = '../output/image_test_undistortion/'
 CFG['perspective_calib_img'] = '../input/road_images/straight_lines2.jpg'
-#CFG['perspective_calib_pts'] = np.float32([[271, 682], [593, 450], [689, 450], [1048, 682]])
 CFG['perspective_calib_pts'] = np.float32([[217, 719], [593, 450], [689, 450], [1112, 719]])
 CFG['videos_dir'] = '../input/videos/'
 # out dirs

@@ -49,7 +49,7 @@ class Camera:
             print('done.')
             return True
         else:
-            print("failed. File doesn't exist.")
+            print("failed. File doesn't exist, calibration is needed.")
             return False
 
     def calibrate(self, images_path, pattern_size, show_dbg=False):
