@@ -127,55 +127,29 @@ class ImageProcessor:
             cv2.putText(img_overlay_screen, 'Frame: {:d}'.format(cls.frame_count), (0, 50), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
 
         # apply prior info
-        enable_history = True
+        enable_history = True  ######################################################################################### enable / disable history here
         has_left_line, has_right_line = True, True
-        left_fit_px_archive, right_fit_px_archive = left_fit_px, right_fit_px
-        if enable_history and cls.left_history and cls.right_history:  ################################################# enable / disable history here
-            # use current line if good, otherwise try to use stored lines if they are good
-            if cls.frame_count == 874:  ##################################################### DEBUG
-                dummy = None
+        if enable_history and cls.left_history and cls.right_history:
             if sanity_res[0] and sanity_res[1]:  # parallel and dist ok
                 lline.quality, rline.quality = 5, 5
-
-                has_left_line, left_fit_px = cls.left_history.update(lline)  # use avg and update
-                has_right_line, right_fit_px = cls.right_history.update(rline)
-                if has_left_line or has_right_line:
-                    if verbose:
-                        cv2.putText(img_overlay_screen, 'Lines: current fit smoothed', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
-                else:  # avg is not usable, fallback to current fit without smoothing
-                    left_fit_px, right_fit_px = left_fit_px_archive, right_fit_px_archive
-                    if verbose:
-                        cv2.putText(img_overlay_screen, 'Lines: bad avg, falling back to current', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(128, 255, 128))
             else:
-                lline.quality = 2  # TODO
-                rline.quality = 2  # TODO
-                #cls.left_history.update(lline)
-                #cls.righ_history.update(lline)
+                lline.quality, rline.quality = 2, 2
 
-                # use average coeffs instead
-                # TODO: if removed from history, then alwasy be empty. Find other way to clean up very old lines.
-                # has_left_line, left_fit_px = cls.left_history.get_avg_coeffs_and_remove(quality_limit=5)  # use avg, do not update
-                # has_right_line, right_fit_px = cls.right_history.get_avg_coeffs_and_remove(quality_limit=5)
-                has_left_line, left_fit_px = cls.left_history._get_avg_coeffs(quality_limit=5)  # use avg, do not update
-                has_right_line, right_fit_px = cls.right_history._get_avg_coeffs(quality_limit=5)
-                if has_left_line and has_right_line:
-                    if verbose:
-                        cv2.putText(img_overlay_screen, 'Lines: from memory', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 170, 0))
+            has_left_line, left_fit_px = cls.left_history.update(lline, 4)  # use avg and update
+            has_right_line, right_fit_px = cls.right_history.update(rline, 4)
 
-        # display lane poly
+        # display lane polys
         if has_left_line and has_right_line:
             draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
-        else:
-            draw_polys_inplace(left_fit_px_archive, right_fit_px_archive, img_overlay_for_unwarp, show_dbg and True)
-            if verbose:
-                cv2.putText(img_overlay_screen, 'Lines: missing', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
+        elif verbose:
+            cv2.putText(img_overlay_screen, 'Lines: missing', (830, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
 
         # render the overlays
         img_persp_overlay = warp(img_overlay_for_unwarp, cls.camera.perspective_inv_matrix, show_dbg and False)
         img_persp_overlay = crop_ref(img_persp_overlay)
-        if verbose:
-            combined = cv2.addWeighted(img, 0.5, img_persp_overlay, 1.0, 0.)
-            combined = cv2.addWeighted(combined, 1.0, img_overlay_screen, 1.0, 0.)
+        # if verbose:
+        #     combined = cv2.addWeighted(img, 0.5, img_persp_overlay, 1.0, 0.)
+        #     combined = cv2.addWeighted(combined, 1.0, img_overlay_screen, 1.0, 0.)
         combined = cv2.addWeighted(img, 1.0, img_persp_overlay, 1.0, 0.)
 
         if verbose:

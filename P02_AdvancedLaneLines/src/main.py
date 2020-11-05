@@ -49,8 +49,8 @@ def process_video(video_path):
 
     basename = os.path.basename(video_path)
     outpath = CFG['videos_out_dir'] + basename
-    #clip = VideoFileClip(video_path, audio=False).subclip(0, 10)  ################################ TODO: use full videos
-    clip = VideoFileClip(video_path, audio=False)
+    clip = VideoFileClip(video_path, audio=False).subclip(0, 10)  ################################ TODO: use full videos
+    #clip = VideoFileClip(video_path, audio=False)
 
     # Reinit for each video of possible different image sizes
     histories = (LineHistory('left'), LineHistory('right'))
@@ -77,7 +77,7 @@ def main():
     ImageProcessor.init((img_source.shape[1], img_source.shape[0]), GLOBAL['camera'], show_dbg=True)
     process_still_images()
 
-   # process_video(CFG['videos_dir'] + 'project_video.mp4')
+    process_video(CFG['videos_dir'] + 'project_video.mp4')
     process_video(CFG['videos_dir'] + 'challenge_video.mp4')
     process_video(CFG['videos_dir'] + 'harder_challenge_video.mp4')
 

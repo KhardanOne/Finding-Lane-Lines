@@ -62,12 +62,12 @@ class LineHistory:
         raise NotImplemented
         pass
 
-    def update(self, line):
+    def update(self, line, lowest_quality_for_avg=4):
         """Stores the line and returns the stored average."""
         line.side = line.side if line.side else self.side
         self._shift_stored_data()
         self.history[0] = line
-        avg = self._get_avg_coeffs()
+        avg = self._get_avg_coeffs(lowest_quality_for_avg)
         if not avg:  # if there is not enough good quality stored data but we have a current fit, then use the current, this should never happen
             avg = line.coeffs
         return avg
