@@ -351,7 +351,7 @@ def fit_polynomial(leftx, lefty, rightx, righty, dst_img, show_dbg=False):
 
     try:
         left_fit_px = np.polyfit(lefty, leftx, 2)
-        left_fit_m = np.polyfit(CFG['ym_per_pix']*lefty, CFG['xm_per_pix']*leftx, 2)  # TODO: conversion might be not needed right here
+        left_fit_m = np.polyfit(CFG['ym_per_pix']*lefty, CFG['xm_per_pix']*leftx, 2)
     except Exception as e:
         print('FAILED to fit left polynomial.')
         if show_dbg:
@@ -419,11 +419,11 @@ def measure_radius_px(left_fit, right_fit, shape):
     # Define y-value where we want radius of curvature
     # We'll choose the maximum y-value, corresponding to the bottom of the image
     y_eval = np.max(ploty)
+    y_eval2 = y_eval ** 2
 
     # Calculation of R_curve (radius of curvature)
-    left_radius_px = ((1 + (2 * left_fit[0] * y_eval + left_fit[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit[0])
+    left_radius_px  = ((1 + (2 * left_fit[0]  * y_eval + left_fit[1])  ** 2) ** 1.5) / np.absolute(2 * left_fit[0])
     right_radius_px = ((1 + (2 * right_fit[0] * y_eval + right_fit[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit[0])
-    y_eval2 = y_eval ** 2
     left_x_px = left_fit[0] * y_eval2 + left_fit[1] * y_eval + left_fit[2]
     right_x_px = right_fit[0] * y_eval2 + right_fit[1] * y_eval + right_fit[2]
     center_fpx = (left_x_px + right_x_px) / 2.

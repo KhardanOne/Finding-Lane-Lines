@@ -34,6 +34,7 @@ class ImageProcessor:
     def sanity_checks(cls, left_line, right_line, left_fit_px, right_fit_px):
         ok_parallel, deviations = left_line.is_sane_parallel(right_line)
         ok_distance, min, max = left_line.is_sane_other_dist(right_line)
+        results = np.array([ok_parallel, ok_distance])
         strs = [
             'Parallel {} {}'.format(
                 'OK' if ok_parallel else 'INSANE',
@@ -48,6 +49,7 @@ class ImageProcessor:
         if cls.has_history():
             ok_laverage, lavg, ldiffs = cls.left_history.is_sane_avg(left_fit_px)
             ok_raverage, ravg, rdiffs = cls.right_history.is_sane_avg(right_fit_px)
+            results = np.hstack((results, [ok_laverage, ok_raverage]))
             strs += [
                 'Left history {} {}'.format(
                     'OK' if ok_laverage else 'INSANE',
@@ -58,7 +60,6 @@ class ImageProcessor:
                     'coeff diffs: {:8.7f}, {:5.3f}, {:5.1f}'.format(rdiffs[0], rdiffs[1], rdiffs[2])
                 ),
             ]
-        results = np.array([ok_parallel, ok_distance, ok_laverage, ok_raverage])
         ok_count = results.sum()
         merged = np.vstack((results, strs)).T
         return ok_count, len(results), merged
@@ -83,19 +84,19 @@ class ImageProcessor:
         left_fit_px, right_fit_px, left_fit_m, right_fit_m = fit_polynomial(leftx, lefty, rightx, righty, img_win, show_dbg and False)
 
         # use these for road-space and screen-space overlays
-        img_overlay_for_unwarp = np.zeros_like(img)
-        img_overlay_screen = np.zeros_like(img)
+        img_overlay_for_unwarp = np.zeros_like(img)  # this will be warped back to the road surface
+        img_overlay_screen = np.zeros_like(img)      # this will stay in screen-space
         # draw_polys_inplace(left_fit_px, right_fit_px, img_overlay_for_unwarp, show_dbg and True)
         # birdseye_extended = np.dstack((bin_2d, bin_2d, bin_2d)) * 128
         # img_overlay_for_unwarp = cv2.addWeighted(birdseye_extended, 1.0, img_overlay_for_unwarp, 1.0, 0.)
         # colors_on_green = cv2.addWeighted(white_patches, 1.0, img_win, 1.0, 0.)
 
         # texts
-        left_radius_m, right_radius_m, center_dist_fpx = measure_radius_px(left_fit_m, right_fit_m, img.shape)
+        left_r_px, right_r_px, center_dist_fpx = measure_radius_px(left_fit_px, right_fit_px, img.shape)
         conv = CFG['xm_per_pix']
-        left_radius_km, right_radius_km, center_dist_cm = left_radius_m * conv/1000, right_radius_m * conv/100, int(center_dist_fpx * conv)
+        left_r_km, right_r_km, center_dist_cm = left_r_px*conv/1000, right_r_px*conv/1000, int(center_dist_fpx*conv*100)
         if cls.txt1 == None or cls.frame_count % 1 == 0:
-            cls.txt1 = "Left R: {:5.2f}km, right R: {:5.2f}km, distance from center: {}cm".format(left_radius_m/1000., right_radius_m/1000., center_dist_cm)
+            cls.txt1 = "Left R:{:5.2f}km, right R:{:5.2f}km, center:{}cm".format(left_r_km, right_r_km, center_dist_cm)
         cv2.putText(img_overlay_screen, cls.txt1, (0, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
         cv2.putText(img_overlay_screen, 'Frame: {:d}'.format(cls.frame_count), (0, 50), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
 
