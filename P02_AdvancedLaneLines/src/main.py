@@ -1,9 +1,3 @@
-# TODO: bugfix radius
-# TODO: forget the old masking method... use unwarped rect instead
-# TODO: use bigger 2D pic
-# TODO: use higher deg polynom
-
-
 from globals import *
 import matplotlib.image as mpimg
 from camera import Camera

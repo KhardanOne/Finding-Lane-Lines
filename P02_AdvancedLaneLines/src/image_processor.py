@@ -92,14 +92,11 @@ class ImageProcessor:
         # colors_on_green = cv2.addWeighted(white_patches, 1.0, img_win, 1.0, 0.)
 
         # texts
-        left_r_px, right_r_px, center_dist_fpx = measure_radius_px(left_fit_px, right_fit_px, img.shape)
-        conv = CFG['xm_per_pix']
-        left_r_km, right_r_km, center_dist_cm = left_r_px*conv/1000, right_r_px*conv/1000, int(center_dist_fpx*conv*100)
+        left_r_m, right_r_m, center_dist_m = measure_radius_m(left_fit_m, right_fit_m, img.shape)
         if cls.txt1 == None or cls.frame_count % 1 == 0:
-            cls.txt1 = "Left R:{:5.2f}km, right R:{:5.2f}km, center:{}cm".format(left_r_km, right_r_km, center_dist_cm)
+            cls.txt1 = "Center Offset:{:3d}cm, Radius:{:5d}m, {:5d}m".format(int(center_dist_m*100), int(left_r_m), int(right_r_m))
         cv2.putText(img_overlay_screen, cls.txt1, (0, 25), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
         cv2.putText(img_overlay_screen, 'Frame: {:d}'.format(cls.frame_count), (0, 50), cv2.QT_FONT_NORMAL, 1, color=(255, 255, 255))
-
 
         # sanity checks
         lline = Line(cls.frame_count, 'left', img.shape[0], left_fit_px, 1)

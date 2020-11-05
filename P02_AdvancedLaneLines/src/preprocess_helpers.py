@@ -343,9 +343,7 @@ def find_lane_pixels(binary_warped_img, show_dbg=False):
 
 
 def fit_polynomial(leftx, lefty, rightx, righty, dst_img, show_dbg=False):
-    # Fit a second order polynomial
-    # print('Fitting polynomial...', end=" ")
-
+    """Fit a second order polynomial"""
     dst_img[lefty, leftx] = [255, 80, 80]
     dst_img[righty, rightx] = [80, 80, 255]
 
@@ -358,6 +356,7 @@ def fit_polynomial(leftx, lefty, rightx, righty, dst_img, show_dbg=False):
             plt.imshow(dst_img)
             plt.title('FAILED TO FIT LEFT POLYGON')
             plt.show()
+
     try:
         right_fit_px = np.polyfit(righty, rightx, 2)
         right_fit_m = np.polyfit(CFG['ym_per_pix'] * righty, CFG['xm_per_pix'] * rightx, 2)
@@ -388,7 +387,6 @@ def fit_polynomial(leftx, lefty, rightx, righty, dst_img, show_dbg=False):
          plt.ylim(720, 0)
          plt.show()
 
-    # print('done.')
     return left_fit_px, right_fit_px, left_fit_m, right_fit_m
 
 
@@ -432,28 +430,25 @@ def measure_radius_px(left_fit, right_fit, shape):
     return left_radius_px, right_radius_px, dist_from_center_fpx
 
 #
-def measure_radius_m(left_fit, right_fit):
+def measure_radius_m(left_fit, right_fit, shape):
     '''Calculates the radius of polynomial functions in meters at the bottom of image.'''
-
-    ym_per_pix = 30/720 # meters per pixel in y dimension
-    xm_per_pix = 3.7/700 # meters per pixel in x dimension
-
-    # Start by generating our fake example data
-    # Make sure to feed in your real data instead in your project!
-    ploty = np.linspace(0, 719, num=720)
+    ym_per_pix = CFG['ym_per_pix']
+    xm_per_pix = CFG['xm_per_pix']
+    height, width = shape[:2]
+    height *= ym_per_pix
+    width *= xm_per_pix
 
     # Define y-value where we want radius of curvature
     # We'll choose the maximum y-value, corresponding to the bottom of the image
-    y_eval = np.max(ploty)
-    y_eval_m = y_eval * ym_per_pix
+    y_eval_m = height
+    y_eval_m2 = y_eval_m ** 2
+    screen_center_m = width / 2
 
-    # x = a * (y**2) + b * y + c
-    # after conversion: xmpp * x = a * (ympp**2) * (y**2) + b * y * ympp + c
+    left_radius_m  = ((1 + (2 * left_fit[0]  * y_eval_m + left_fit[1]) ** 2 ) ** 1.5) / np.absolute(2 * left_fit[0] )
+    right_radius_m = ((1 + (2 * right_fit[0] * y_eval_m + right_fit[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit[0])
+    left_x_m  = left_fit[0]  * y_eval_m2 + left_fit[1]  * y_eval_m + left_fit[2]
+    right_x_m = right_fit[0] * y_eval_m2 + right_fit[1] * y_eval_m + right_fit[2]
+    lane_center_m = (left_x_m + right_x_m) / 2.
+    dist_from_center_m = lane_center_m - screen_center_m
 
-
-    left_fit_m = left_fit * xm_per_pix
-    right_fit_m = right_fit * xm_per_pix
-    left_radius_m = ((1 + (2 * left_fit_m[0] * y_eval_m + left_fit_m[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit_m[0])
-    right_radius_m = ((1 + (2 * right_fit_m[0] * y_eval_m + right_fit_m[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit_m[0])
-
-    return left_radius_m, right_radius_m
+    return left_radius_m, right_radius_m, dist_from_center_m
