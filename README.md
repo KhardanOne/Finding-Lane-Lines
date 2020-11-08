@@ -1,5 +1,8 @@
 This is my solution for Finding Lane Lines project of the great [Udacity Self-Driving Car Engineer Nanodegree](https://www.udacity.com/course/self-driving-car-engineer-nanodegree--nd013).
 
+# WARNING!
+This is a learning material, my very first Python project. Also the first time I used numpy and OpenCV. Do not expect any quality.
+
 # Goal
 Detect lane lines in images and videos using Python and OpenCV. 
 
