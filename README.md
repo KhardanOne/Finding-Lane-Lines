@@ -22,3 +22,5 @@ To run the script type in the command line:<BR>
 <BR><BR>
 For detailed description see the [writeup.md](P01_BasicLaneFinding/writeup.md).
 
+# Acknowledgement
+The content of this repository is based on the Udacity course material.
